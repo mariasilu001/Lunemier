@@ -1,0 +1,121 @@
+.register-form-root {
+    width: 100%;
+    max-width: 420px; 
+    margin: auto; 
+    padding: 40px; 
+    background-color: var(--color-cream);
+    border: 1px solid var(--color-dark-brown); 
+    border-radius: 6px; 
+    display: flex;
+    flex-direction: column;
+    gap: 20px; 
+    box-shadow: 0 4px 15px rgba(89, 69, 69, 0.1);
+}
+
+.register-form-header {
+    font-size: 26px;
+    font-weight: 600;
+    text-align: center;
+    margin-bottom: 10px;
+    color: var(--color-dark-brown);
+}
+
+.register-form-email-input-group,
+.register-form-password-input-group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.register-form-email-input-group-label,
+.register-form-password-input-group-label {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--color-dark-brown);
+}
+
+.register-form-email-input-group-input,
+.register-form-password-input-group-input {
+    width: 100%;
+    padding: 12px 14px;
+    font-family: inherit;
+    font-size: 16px;
+    color: var(--color-dark-brown);
+    background-color: var(--color-white);
+    border: 1px solid var(--color-dark-brown);
+    border-radius: 4px;
+    outline: none;
+    transition:
+        border-color 0.3s ease,
+        box-shadow 0.3s ease;
+}
+
+.register-form-email-input-group-input:focus,
+.register-form-password-input-group-input:focus {
+    border-color: var(--color-accent-medium);
+    box-shadow: 0 0 0 3px rgba(129, 91, 91, 0.15);
+}
+
+.register-form-email-input-group-error-message,
+.register-form-password-input-group-error-message {
+    font-size: 12px;
+    color: var(--color-red);
+    margin-top: 2px;
+}
+
+.register-form-submit-button {
+    width: 100%;
+    padding: 14px;
+    margin-top: 10px;
+    font-family: inherit;
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--color-cream);
+    background-color: var(--color-dark-brown);
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+}
+
+.register-form-submit-button:hover {
+    background-color: var(
+        --color-accent-medium
+    );
+}
+
+.register-form-login-link {
+    text-align: center;
+    font-size: 14px;
+    margin-top: 5px;
+}
+
+.register-form-login-link-accent {
+    color: var(--color-accent-light);
+    font-weight: 600;
+    margin-left: 6px;
+    cursor: pointer;
+    text-decoration: underline;
+    text-decoration-color: transparent;
+    transition:
+        color 0.3s ease,
+        text-decoration-color 0.3s ease;
+}
+
+.register-form-login-link-accent:hover {
+    color: var(--color-accent-medium);
+    text-decoration-color: var(--color-accent-medium);
+}
+
+@media (max-width: 480px) {
+    .register-form-root {
+        padding: 24px 20px;
+        width: 90%;
+        border-radius: 8px;
+        gap: 16px;
+    }
+
+    .register-form-header {
+        font-size: 22px;
+    }
+}

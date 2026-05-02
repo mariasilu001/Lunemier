@@ -1,0 +1,144 @@
+.profile-orders-root {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    max-width: 800px;
+    padding: 30px 40px;
+}
+
+.profile-orders-code-banner {
+    background-color: var(--color-dark-brown);
+    border-radius: 8px;
+    padding: 30px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 40px;
+    box-shadow: 0 10px 20px rgba(89, 69, 69, 0.2);
+}
+
+.profile-orders-code-label {
+    color: var(--color-cream);
+    font-size: 16px;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    margin-bottom: 10px;
+    opacity: 0.8;
+}
+
+.profile-orders-code-value {
+    color: var(--color-white);
+    font-size: 64px;
+    font-weight: 700;
+    line-height: 1;
+    letter-spacing: 10px;
+    font-family: monospace; 
+}
+
+.profile-orders-header {
+    font-size: 28px;
+    color: var(--color-dark-brown);
+    margin-bottom: 25px;
+    border-bottom: 2px solid var(--color-dark-brown);
+    padding-bottom: 10px;
+}
+
+.profile-orders-list {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.profile-order-card {
+    background-color: var(--color-white);
+    border: 1px solid var(--color-dark-brown);
+    border-radius: 6px;
+    padding: 20px;
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+    transition: all 0.3s ease;
+}
+
+.profile-order-card:hover {
+    box-shadow: 0 6px 15px rgba(89, 69, 69, 0.1);
+    transform: translateY(-2px);
+    border-color: var(--color-accent-medium);
+}
+
+.profile-order-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+}
+
+.profile-order-id {
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--color-dark-brown);
+}
+
+.profile-order-date {
+    font-size: 14px;
+    color: var(--color-accent-medium);
+}
+
+.profile-order-card-body {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+}
+
+.profile-order-status-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.profile-order-status-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+}
+
+.profile-order-status-dot.bg-ready { background-color: #d97706; }
+.profile-order-status-dot.bg-delivered { background-color: #16a34a; }
+.profile-order-status-dot.bg-cancelled { background-color: var(--color-red); }
+
+.profile-order-status-text {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--color-dark-brown);
+}
+
+.profile-order-status-date {
+    font-weight: 400;
+    color: var(--color-accent-light);
+    font-size: 14px;
+}
+
+.profile-order-amount {
+    font-size: 20px;
+    font-weight: 600;
+    color: var(--color-dark-brown);
+}
+
+.profile-order-card-hover-hint {
+    position: absolute;
+    bottom: -30px;
+    left: 0;
+    width: 100%;
+    background-color: var(--color-dark-brown);
+    color: var(--color-cream);
+    text-align: center;
+    padding: 6px 0;
+    font-size: 12px;
+    font-weight: 600;
+    transition: bottom 0.3s ease;
+}
+
+.profile-order-card:hover .profile-order-card-hover-hint {
+    bottom: 0;
+}

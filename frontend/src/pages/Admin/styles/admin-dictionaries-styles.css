@@ -1,0 +1,318 @@
+.admin-dict-root {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+}
+
+.admin-dict-header-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    margin-bottom: 20px;
+}
+
+.admin-dict-header {
+    font-size: 28px;
+    color: var(--color-dark-brown);
+    margin-bottom: 5px;
+}
+
+.admin-dict-subtitle {
+    font-size: 14px;
+    color: var(--color-accent-medium);
+}
+
+.admin-dict-add-btn {
+    padding: 10px 20px;
+    background-color: var(--color-dark-brown);
+    color: var(--color-cream);
+    border: none;
+    border-radius: 4px;
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+}
+
+.admin-dict-add-btn:hover {
+    background-color: var(--color-accent-medium);
+}
+
+.admin-dict-tabs {
+    display: flex;
+    gap: 15px;
+    border-bottom: 2px solid var(--color-dark-brown);
+    margin-bottom: 25px;
+}
+
+.admin-dict-tab {
+    background: transparent;
+    border: none;
+    padding: 10px 15px;
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--color-accent-medium);
+    cursor: pointer;
+    position: relative;
+    transition: color 0.3s ease;
+}
+
+.admin-dict-tab:hover {
+    color: var(--color-dark-brown);
+}
+
+.admin-dict-tab.active {
+    color: var(--color-dark-brown);
+}
+
+.admin-dict-tab.active::after {
+    content: "";
+    position: absolute;
+    bottom: -2px;
+    left: 0;
+    width: 100%;
+    height: 3px;
+    background-color: var(--color-red); 
+    border-radius: 3px 3px 0 0;
+}
+
+.admin-dict-table-wrapper {
+    width: 100%;
+    overflow-x: auto;
+    background-color: var(--color-white);
+    border: 1px solid var(--color-dark-brown);
+    border-radius: 8px;
+    box-shadow: 0 4px 15px rgba(89, 69, 69, 0.05);
+}
+
+.admin-dict-table {
+    width: 100%;
+    border-collapse: collapse;
+    text-align: left;
+    font-size: 14px;
+}
+
+.admin-dict-table thead {
+    background-color: var(--color-cream);
+    border-bottom: 2px solid var(--color-dark-brown);
+}
+
+.admin-dict-table th {
+    padding: 15px 20px;
+    font-weight: 600;
+    color: var(--color-dark-brown);
+    text-transform: uppercase;
+    font-size: 12px;
+}
+
+.admin-dict-table td {
+    padding: 15px 20px;
+    border-bottom: 1px solid var(--color-accent-light);
+    color: var(--color-dark-brown);
+    vertical-align: middle;
+}
+
+.font-monospace {
+    font-family: monospace;
+    font-weight: 600;
+    color: var(--color-accent-medium);
+}
+.font-bold {
+    font-weight: 600;
+}
+
+.actions-cell {
+    white-space: nowrap;
+    vertical-align: middle;
+}
+
+.actions-cell > * {
+    display: inline-block;
+    vertical-align: middle;
+    margin-right: 15px; 
+}
+
+.actions-cell > *:last-child {
+    margin-right: 0;
+}
+
+.admin-btn-text {
+    background: none;
+    border: none;
+    color: var(--color-dark-brown);
+    font-weight: 600;
+    cursor: pointer;
+    text-decoration: underline;
+}
+.admin-btn-text:hover {
+    color: var(--color-accent-medium);
+}
+.admin-btn-text:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+}
+
+.admin-btn-text-delete {
+    background: none;
+    border: none;
+    color: var(--color-red);
+    font-weight: 600;
+    cursor: pointer;
+    text-decoration: underline;
+}
+.admin-btn-text-delete:hover {
+    color: #6b0a04;
+}
+
+.badge {
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+.badge-active {
+    background-color: #16a34a;
+    color: white;
+}
+.badge-inactive {
+    background-color: #9ca3af;
+    color: white;
+}
+
+.deleted-row {
+    opacity: 0.5;
+    background-color: rgba(155, 15, 6, 0.05);
+}
+.deleted-stamp {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--color-red);
+}
+
+.admin-dict-empty {
+    text-align: center;
+    padding: 30px;
+    color: var(--color-accent-medium);
+    font-weight: 600;
+}
+
+.admin-dict-modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background-color: rgba(89, 69, 69, 0.7);
+    backdrop-filter: blur(4px);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 3000;
+}
+
+.admin-dict-modal-box {
+    background-color: var(--color-white);
+    border: 2px solid var(--color-dark-brown);
+    border-radius: 8px;
+    width: 100%;
+    max-width: 500px;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 15px 40px rgba(0, 0, 0, 0.3);
+}
+
+.admin-dict-modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px 25px;
+    background-color: var(--color-cream);
+    border-bottom: 1px solid var(--color-dark-brown);
+    border-radius: 6px 6px 0 0;
+}
+
+.admin-dict-modal-header h2 {
+    font-size: 20px;
+    color: var(--color-dark-brown);
+    text-transform: capitalize;
+}
+.admin-dict-modal-close {
+    background: none;
+    border: none;
+    font-size: 24px;
+    color: var(--color-dark-brown);
+    cursor: pointer;
+}
+
+.admin-dict-form {
+    display: flex;
+    flex-direction: column;
+    padding: 25px;
+    gap: 20px;
+}
+
+.admin-dict-input-group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+.admin-dict-input-group label {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--color-dark-brown);
+}
+.admin-dict-input-group input {
+    padding: 10px 12px;
+    border: 1px solid var(--color-dark-brown);
+    border-radius: 4px;
+    font-family: inherit;
+    font-size: 15px;
+    outline: none;
+}
+.admin-dict-input-group input:focus {
+    border-color: var(--color-accent-medium);
+    box-shadow: 0 0 0 2px rgba(129, 91, 91, 0.1);
+}
+
+.admin-checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--color-dark-brown);
+    cursor: pointer;
+}
+
+.admin-dict-modal-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 15px;
+    margin-top: 10px;
+    padding-top: 20px;
+    border-top: 1px solid var(--color-accent-light);
+}
+
+.admin-btn-cancel {
+    padding: 10px 20px;
+    background: transparent;
+    color: var(--color-dark-brown);
+    border: 1px solid var(--color-dark-brown);
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: 600;
+}
+.admin-btn-save {
+    padding: 10px 20px;
+    background: var(--color-dark-brown);
+    color: var(--color-cream);
+    border: 1px solid var(--color-dark-brown);
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: 600;
+}
+.admin-btn-save:hover {
+    background: var(--color-accent-medium);
+}

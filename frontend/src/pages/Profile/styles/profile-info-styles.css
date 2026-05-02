@@ -1,0 +1,110 @@
+.profile-info-root {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    max-width: 100%;
+    padding: 30px 40px;
+}
+
+.profile-info-card {
+    background-color: var(--color-white);
+    border: none;
+    border-radius: 0;
+    padding: 0;
+    box-shadow: none;
+}
+
+.profile-info-header {
+    font-size: 28px;
+    color: var(--color-dark-brown);
+    margin-bottom: 30px;
+    border-bottom: 2px solid var(--color-dark-brown);
+    padding-bottom: 15px;
+}
+
+.profile-info-separator {
+    height: 1px;
+    background-color: var(--color-accent-light);
+    opacity: 0.3;
+    margin: 25px 0;
+}
+
+.profile-info-field-group {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px 0;
+    border-bottom: 1px dashed var(--color-accent-light);
+}
+
+.profile-info-field-group:last-child {
+    border-bottom: none;
+    padding-bottom: 0;
+}
+
+.profile-info-field-group.read-only {
+    border-bottom: none;
+    padding: 0;
+}
+
+.profile-info-field-text-data {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.profile-info-field-label {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--color-accent-medium);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.profile-info-field-value {
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--color-dark-brown);
+}
+
+.profile-info-edit-btn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 18px;
+    background-color: transparent;
+    color: var(--color-dark-brown);
+    border: 1px solid var(--color-dark-brown);
+    border-radius: 4px;
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.profile-info-edit-btn:hover {
+    background-color: var(--color-dark-brown);
+    color: var(--color-white);
+}
+
+.profile-info-logout-btn {
+    align-self: flex-start;
+    margin-top: 30px;
+    padding: 12px 24px;
+    background-color: transparent;
+    color: var(--color-red);
+    border: 1px solid var(--color-red);
+    border-radius: 4px;
+    font-family: inherit;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.profile-info-logout-btn:hover {
+    background-color: var(--color-red);
+    color: var(--color-white);
+    box-shadow: 0 4px 10px rgba(155, 15, 6, 0.2);
+}

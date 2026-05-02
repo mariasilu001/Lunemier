@@ -1,0 +1,297 @@
+.admin-prices-root {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+}
+
+.admin-prices-header-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    margin-bottom: 25px;
+    padding-bottom: 15px;
+    border-bottom: 2px solid var(--color-dark-brown);
+}
+
+.admin-prices-header {
+    font-size: 28px;
+    color: var(--color-dark-brown);
+    margin-bottom: 5px;
+}
+
+.admin-prices-subtitle {
+    font-size: 14px;
+    color: var(--color-accent-medium);
+}
+
+.admin-prices-table-wrapper {
+    width: 100%;
+    overflow-x: auto;
+    background-color: var(--color-white);
+    border: 1px solid var(--color-dark-brown);
+    border-radius: 8px;
+    box-shadow: 0 4px 15px rgba(89, 69, 69, 0.05);
+}
+
+.admin-prices-table {
+    width: 100%;
+    border-collapse: collapse;
+    text-align: left;
+    font-size: 14px;
+}
+
+.admin-prices-table thead {
+    background-color: var(--color-cream);
+    border-bottom: 2px solid var(--color-dark-brown);
+}
+
+.admin-prices-table th {
+    padding: 15px 20px;
+    font-weight: 600;
+    color: var(--color-dark-brown);
+    text-transform: uppercase;
+    font-size: 12px;
+}
+
+.admin-prices-table td {
+    padding: 15px 20px;
+    border-bottom: 1px solid var(--color-accent-light);
+    color: var(--color-dark-brown);
+    vertical-align: middle;
+}
+
+.font-monospace {
+    font-family: monospace;
+    font-weight: 600;
+    color: var(--color-accent-medium);
+}
+
+.font-bold {
+    font-weight: 600;
+}
+
+.price-cell {
+    font-size: 16px;
+    font-weight: 700;
+    color: #16a34a;
+}
+
+.admin-btn-details {
+    padding: 6px 14px;
+    background: transparent;
+    color: var(--color-dark-brown);
+    border: 1px solid var(--color-dark-brown);
+    border-radius: 4px;
+    font-family: inherit;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.admin-btn-details:hover {
+    background: var(--color-dark-brown);
+    color: var(--color-cream);
+}
+
+.admin-price-modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background-color: rgba(89, 69, 69, 0.7);
+    backdrop-filter: blur(4px);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 3000;
+}
+
+.admin-price-modal-box {
+    background-color: var(--color-white);
+    border: 2px solid var(--color-dark-brown);
+    border-radius: 8px;
+    width: 100%;
+    max-width: 500px;
+    max-height: 85vh;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 15px 40px rgba(0, 0, 0, 0.3);
+}
+
+.admin-price-modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px 25px;
+    background-color: var(--color-cream);
+    border-bottom: 1px solid var(--color-dark-brown);
+    border-radius: 6px 6px 0 0;
+}
+
+.admin-price-modal-header h2 {
+    font-size: 20px;
+    color: var(--color-dark-brown);
+    margin-bottom: 4px;
+}
+
+.admin-price-modal-subtitle {
+    font-size: 13px;
+    color: var(--color-accent-medium);
+    font-weight: 600;
+}
+
+.admin-price-modal-close {
+    background: none;
+    border: none;
+    font-size: 24px;
+    color: var(--color-dark-brown);
+    cursor: pointer;
+}
+
+.admin-price-modal-body {
+    padding: 25px;
+    display: flex;
+    flex-direction: column;
+    overflow-y: hidden;
+}
+
+.admin-price-form {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 20px;
+}
+
+.admin-price-form label {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--color-dark-brown);
+}
+
+.admin-price-input-row {
+    display: flex;
+    gap: 10px;
+}
+
+.admin-price-input-row input {
+    flex: 1;
+    padding: 10px 12px;
+    border: 1px solid var(--color-dark-brown);
+    border-radius: 4px;
+    font-family: inherit;
+    font-size: 16px;
+    outline: none;
+}
+
+.admin-price-input-row input:focus {
+    border-color: var(--color-accent-medium);
+    box-shadow: 0 0 0 2px rgba(129, 91, 91, 0.1);
+}
+
+.admin-btn-save-price {
+    padding: 0 20px;
+    background: var(--color-dark-brown);
+    color: var(--color-cream);
+    border: none;
+    border-radius: 4px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s ease;
+}
+
+.admin-btn-save-price:hover {
+    background: var(--color-accent-medium);
+}
+
+.admin-price-hint {
+    font-size: 11px;
+    color: var(--color-red);
+    opacity: 0.8;
+}
+
+.admin-price-separator {
+    height: 1px;
+    background-color: var(--color-accent-light);
+    opacity: 0.3;
+    margin: 5px 0 20px 0;
+}
+
+.admin-price-history-title {
+    font-size: 16px;
+    color: var(--color-dark-brown);
+    margin-bottom: 15px;
+}
+
+.admin-price-history-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    overflow-y: auto;
+    max-height: 250px;
+    padding-right: 5px;
+}
+
+.admin-price-history-list::-webkit-scrollbar {
+    width: 6px;
+}
+.admin-price-history-list::-webkit-scrollbar-track {
+    background: var(--color-cream);
+}
+.admin-price-history-list::-webkit-scrollbar-thumb {
+    background: rgba(129, 91, 91, 0.4);
+    border-radius: 3px;
+}
+
+.admin-price-history-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 15px;
+    border: 1px solid var(--color-accent-light);
+    border-radius: 6px;
+    background-color: #fafafa;
+}
+
+.admin-price-history-item.active {
+    border-color: #16a34a;
+    background-color: rgba(22, 163, 74, 0.05);
+}
+
+.price-history-left {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.price-history-value {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--color-dark-brown);
+}
+
+.admin-price-history-item.active .price-history-value {
+    color: #16a34a;
+}
+
+.price-history-badge {
+    background-color: #16a34a;
+    color: white;
+    font-size: 10px;
+    padding: 2px 6px;
+    border-radius: 4px;
+    text-transform: uppercase;
+    font-weight: 700;
+}
+
+.price-history-date {
+    font-size: 13px;
+    color: var(--color-accent-medium);
+}
+
+.admin-price-history-empty {
+    font-size: 14px;
+    color: var(--color-accent-medium);
+    text-align: center;
+    padding: 20px;
+}

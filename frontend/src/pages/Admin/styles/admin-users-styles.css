@@ -1,0 +1,169 @@
+.admin-users-root {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+}
+
+.admin-users-header {
+    font-size: 28px;
+    color: var(--color-dark-brown);
+    margin-bottom: 5px;
+}
+
+.admin-users-subtitle {
+    font-size: 14px;
+    color: var(--color-accent-medium);
+    margin-bottom: 25px;
+    padding-bottom: 15px;
+    border-bottom: 2px solid var(--color-dark-brown);
+}
+
+.admin-users-table-wrapper {
+    width: 100%;
+    overflow-x: auto;
+    background-color: var(--color-white);
+    border: 1px solid var(--color-dark-brown);
+    border-radius: 8px;
+    box-shadow: 0 4px 15px rgba(89, 69, 69, 0.05);
+}
+
+.admin-users-table-wrapper::-webkit-scrollbar {
+    height: 8px;
+}
+.admin-users-table-wrapper::-webkit-scrollbar-track {
+    background: var(--color-cream);
+    border-radius: 0 0 8px 8px;
+}
+.admin-users-table-wrapper::-webkit-scrollbar-thumb {
+    background: var(--color-accent-medium);
+    border-radius: 4px;
+}
+
+.admin-users-table {
+    width: 100%;
+    border-collapse: collapse;
+    text-align: left;
+    font-size: 14px;
+}
+
+.admin-users-table thead {
+    background-color: var(--color-cream);
+    border-bottom: 2px solid var(--color-dark-brown);
+}
+
+.admin-users-table th {
+    padding: 15px 20px;
+    font-weight: 600;
+    color: var(--color-dark-brown);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    font-size: 12px;
+}
+
+.admin-users-table td {
+    padding: 15px 20px;
+    border-bottom: 1px solid var(--color-accent-light);
+    color: var(--color-dark-brown);
+    vertical-align: middle;
+}
+
+.admin-users-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.admin-users-table tbody tr:hover {
+    background-color: rgba(129, 91, 91, 0.05);
+}
+
+.font-bold {
+    font-weight: 600;
+}
+
+.contacts-cell {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.contacts-cell .email {
+    font-weight: 600;
+}
+
+.contacts-cell .phone {
+    font-size: 12px;
+    color: var(--color-accent-medium);
+}
+
+.admin-users-role-select {
+    padding: 6px 10px;
+    border: 1px solid var(--color-dark-brown);
+    border-radius: 4px;
+    background-color: var(--color-white);
+    color: var(--color-dark-brown);
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    outline: none;
+    transition: border-color 0.3s ease;
+}
+
+.admin-users-role-select:focus {
+    border-color: var(--color-accent-medium);
+    box-shadow: 0 0 0 2px rgba(129, 91, 91, 0.1);
+}
+
+.admin-users-role-select:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.admin-users-ban-btn {
+    padding: 6px 12px;
+    border-radius: 4px;
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.admin-users-ban-btn:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+}
+
+.admin-users-ban-btn.ban {
+    background-color: transparent;
+    color: var(--color-red);
+    border: 1px solid var(--color-red);
+}
+
+.admin-users-ban-btn.ban:hover:not(:disabled) {
+    background-color: var(--color-red);
+    color: var(--color-white);
+}
+
+.admin-users-ban-btn.unban {
+    background-color: transparent;
+    color: var(--color-dark-brown);
+    border: 1px dashed var(--color-dark-brown);
+}
+
+.admin-users-ban-btn.unban:hover:not(:disabled) {
+    background-color: var(--color-dark-brown);
+    color: var(--color-white);
+    border-style: solid;
+}
+
+.banned-row {
+    background-color: rgba(155, 15, 6, 0.03);
+}
+
+.banned-row td {
+    opacity: 0.6;
+}
+
+.banned-row td:last-child {
+    opacity: 1;
+}

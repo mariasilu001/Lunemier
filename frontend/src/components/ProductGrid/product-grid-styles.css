@@ -1,0 +1,30 @@
+.product-grid-root {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 20px;
+    width: 100%;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 0;
+    padding-top: 20px;
+}
+
+@media (max-width: 1024px) {
+    .product-grid-root {
+        grid-template-columns: repeat(3, 1fr);
+        margin: 0 auto;
+        padding: 0;
+        padding-top: 15px;
+        gap: 15px;
+    }
+}
+
+@media (max-width: 768px) {
+    .product-grid-root {
+        grid-template-columns: repeat(2, 1fr);
+        margin: 0 auto;
+        padding: 0;
+        padding-top: 10px;
+        gap: 10px;
+    }
+}

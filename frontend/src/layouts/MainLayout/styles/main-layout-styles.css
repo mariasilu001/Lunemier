@@ -1,0 +1,31 @@
+.main-layout-nav-menu-outlet-row-wrapper {
+    display: flex;
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+}
+
+.main-layout-root {
+    flex: 1;
+    overflow-y: auto;
+    background-color: var(--color-white);
+    position: relative;
+    padding: 20px;
+}
+
+.main-layout-root::-webkit-scrollbar {
+    width: 8px;
+}
+
+.main-layout-root::-webkit-scrollbar-track {
+    background: rgba(255, 248, 234, 0.5);
+}
+
+.main-layout-root::-webkit-scrollbar-thumb {
+    background: rgba(129, 91, 91, 0.6);
+    border-radius: 4px;
+}
+
+.main-layout-root::-webkit-scrollbar-thumb:hover {
+    background: rgba(89, 69, 69, 0.8);
+}

@@ -1,0 +1,117 @@
+.profile-edit-modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background-color: rgba(89, 69, 69, 0.6);
+    backdrop-filter: blur(4px);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+    animation: fadeIn 0.2s ease-out;
+}
+
+.profile-edit-modal-box {
+    background-color: var(--color-cream);
+    border: 1px solid var(--color-dark-brown);
+    border-radius: 8px;
+    padding: 30px;
+    width: 100%;
+    max-width: 400px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+    animation: slideUp 0.3s ease-out;
+}
+
+.profile-edit-modal-title {
+    font-size: 20px;
+    font-weight: 600;
+    color: var(--color-dark-brown);
+    margin-bottom: 20px;
+    text-align: center;
+}
+
+.profile-edit-modal-form {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.profile-edit-modal-input {
+    width: 100%;
+    padding: 12px 14px;
+    font-family: inherit;
+    font-size: 16px;
+    color: var(--color-dark-brown);
+    background-color: var(--color-white);
+    border: 1px solid var(--color-dark-brown);
+    border-radius: 4px;
+    outline: none;
+    transition:
+        border-color 0.3s ease,
+        box-shadow 0.3s ease;
+}
+
+.profile-edit-modal-input:focus {
+    border-color: var(--color-accent-medium);
+    box-shadow: 0 0 0 3px rgba(129, 91, 91, 0.15);
+}
+
+.profile-edit-modal-buttons-group {
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
+}
+
+.profile-edit-modal-cancel-btn,
+.profile-edit-modal-save-btn {
+    padding: 10px 20px;
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 600;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.profile-edit-modal-cancel-btn {
+    background-color: transparent;
+    color: var(--color-dark-brown);
+    border: 1px solid var(--color-dark-brown);
+}
+
+.profile-edit-modal-cancel-btn:hover {
+    background-color: rgba(89, 69, 69, 0.1);
+}
+
+.profile-edit-modal-save-btn {
+    background-color: var(--color-dark-brown);
+    color: var(--color-cream);
+    border: 1px solid var(--color-dark-brown);
+}
+
+.profile-edit-modal-save-btn:hover {
+    background-color: var(--color-accent-medium);
+    border-color: var(--color-accent-medium);
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
+@keyframes slideUp {
+    from {
+        transform: translateY(20px);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}

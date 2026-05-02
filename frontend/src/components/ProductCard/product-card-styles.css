@@ -1,0 +1,108 @@
+.product-card-root {
+    width: 100%;
+    max-width: 230px;
+    margin: 0 auto;
+}
+
+.product-card-capsule {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    background-color: var(--color-cream);
+    border: 1px solid var(--color-dark-brown);
+    border-radius: 8px;
+    overflow: hidden;
+    position: relative;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.product-card-capsule:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 20px rgba(89, 69, 69, 0.15);
+}
+
+.product-card-img-wrapper {
+    width: 100%;
+    height: 220px;
+    background-color: rgba(89, 69, 69, 0.08);
+    border-bottom: 1px dashed var(--color-accent-light);
+    overflow: hidden;
+}
+
+.product-card-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform 0.4s ease;
+}
+
+.product-card-capsule:hover .product-card-img {
+    transform: scale(1.05);
+}
+
+.product-card-name {
+    margin: 16px 16px 8px 16px;
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--color-dark-brown);
+    line-height: 1.4;
+
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.product-card-price-rating-group {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin: auto 16px 16px 16px;
+}
+
+.product-card-price {
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--color-dark-brown);
+}
+
+.product-card-rating-block {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--color-accent-medium);
+}
+
+.product-card-rating-value {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--color-dark-brown);
+}
+
+.product-card-add-to-cart-button {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background-color: var(--color-white);
+    color: var(--color-dark-brown);
+    border: 1px solid var(--color-dark-brown);
+
+    display: flex;
+    justify-content: center;
+    align-items: center;
+
+    cursor: pointer;
+    transition: all 0.3s ease;
+    z-index: 2;
+}
+
+.product-card-add-to-cart-button:hover {
+    background-color: var(--color-dark-brown);
+    color: var(--color-white);
+    transform: scale(1.1);
+}

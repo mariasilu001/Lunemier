@@ -1,0 +1,53 @@
+:root {
+    --color-white: #ffffff;
+    --color-cream: #fff8ea;
+    --color-dark-brown: #594545;
+    --color-accent-medium: #815b5b;
+    --color-accent-light: #9e7676;
+    --color-red: #9b0f06;
+
+    --font-main: "Playfair Display", serif;
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+html,
+body {
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    background-color: var(--color-white);
+    color: var(--color-dark-brown);
+    font-family: var(--font-main);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+#root {
+    width: 100%;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    background-color: var(--color-white);
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+    color: var(--color-dark-brown);
+    font-weight: 600;
+    line-height: 1.2;
+}
+
+p {
+    color: var(--color-dark-brown);
+    font-weight: 400;
+    line-height: 1.6;
+}

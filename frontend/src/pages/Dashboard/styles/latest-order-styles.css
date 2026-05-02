@@ -1,0 +1,200 @@
+.latest-order-root {
+    display: flex;
+    width: 100%;
+    max-width: 900px;
+    margin: 0 auto;
+
+    background-color: var(--color-cream);
+    border: 1px solid var(--color-dark-brown);
+    border-radius: 6px;
+    box-shadow: 0 4px 15px rgba(89, 69, 69, 0.1);
+
+    overflow: hidden;
+}
+
+.latest-order-left,
+.latest-order-right {
+    flex: 1;
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+}
+
+.latest-order-left {
+    border-right: 1px solid var(--color-dark-brown);
+}
+
+.latest-order-left-header,
+.latest-order-right-header {
+    font-size: 20px;
+    font-weight: 600;
+    margin-bottom: 20px;
+    border-bottom: 1px solid var(--color-accent-light);
+    padding-bottom: 10px;
+    color: var(--color-dark-brown);
+}
+
+.latest-order-product-card {
+    display: flex;
+    flex-direction: column;
+    flex-grow: 1;
+    gap: 15px;
+}
+
+.latest-order-product-card-img-wrapper {
+    width: 100%;
+    height: 250px;
+    background-color: rgba(89, 69, 69, 0.08);
+    border: 1px solid var(--color-dark-brown);
+    border-radius: 4px;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.latest-order-product-card-img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+}
+
+.latest-order-product-card-name {
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--color-dark-brown);
+}
+
+.latest-order-product-card-description {
+    font-size: 15px;
+    color: var(--color-dark-brown);
+    line-height: 1.5;
+}
+
+.latest-order-product-card-price-rating-group {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: auto;
+    border-top: 1px dashed var(--color-accent-light);
+    padding-top: 15px;
+}
+
+.latest-order-product-card-price {
+    font-size: 20px;
+    font-weight: 600;
+}
+
+.latest-order-product-card-rating {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--color-accent-medium);
+}
+
+.latest-order-product-card-rating-value {
+    font-weight: 600;
+    font-size: 16px;
+    color: var(--color-dark-brown);
+}
+
+.latest-order-review-form {
+    display: flex;
+    flex-direction: column;
+    flex-grow: 1;
+    gap: 15px;
+}
+
+.latest-order-review-form-text-input-group {
+    flex-grow: 1;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+}
+
+.latest-order-text-input-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    border: 0;
+}
+
+.latest-order-text-input {
+    width: 100%;
+    height: 100%;
+    resize: none;
+    padding: 15px;
+    font-family: inherit;
+    font-size: 16px;
+    color: var(--color-dark-brown);
+    background-color: var(--color-white);
+    border: 1px solid var(--color-dark-brown);
+    border-radius: 4px;
+    outline: none;
+    transition:
+        border-color 0.3s ease,
+        box-shadow 0.3s ease;
+}
+
+.latest-order-text-input:focus {
+    border-color: var(--color-accent-medium);
+    box-shadow: 0 0 0 3px rgba(129, 91, 91, 0.15);
+}
+
+.latest-order-input-group-submit-button-wrapper {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.latest-order-review-form-rating-input-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--color-accent-medium);
+}
+
+.latest-order-rating-input-star-container {
+    cursor: pointer;
+    transition: transform 0.2s ease;
+}
+
+.latest-order-rating-input-star-container:hover {
+    transform: scale(1.2);
+}
+
+.latest-order-review-form-submit-button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 45px;
+    height: 45px;
+    background-color: var(--color-dark-brown);
+    color: var(--color-cream);
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    transition:
+        background-color 0.3s ease,
+        transform 0.2s ease;
+}
+
+.latest-order-review-form-submit-button:hover {
+    background-color: var(--color-accent-medium);
+    transform: translateY(-2px);
+}
+
+@media (max-width: 768px) {
+    .latest-order-root {
+        flex-direction: column;
+    }
+
+    .latest-order-left {
+        border-right: none;
+        border-bottom: 1px solid var(--color-dark-brown);
+    }
+}
