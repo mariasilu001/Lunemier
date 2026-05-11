@@ -1,49 +1,112 @@
-import React from "react";
+import React, { useState, useEffect, useContext } from "react";
+import { AppStateContext } from "../../../App";
 import "../styles/profile-customs-styles.css";
 
 function ProfileCustoms() {
-    const mockCustoms = [
-        {
-            id: "CUST-8492",
-            name: "Этническое безумие",
-            createdAt: "18.04.2026",
-            baseProduct: "Базовая футболка оверсайз",
-            baseImage: "/cloth-front.png",
-            resultImage: "/lunemier-design-perfect.png",
-            prints: [
-                "https://i.pinimg.com/736x/81/eb/7a/81eb7a8dd4bbd4720ad2ed935b4d3c4b.jpg",
-            ],
-        },
-        {
-            id: "CUST-8493",
-            name: "Ночная тень",
-            createdAt: "12.04.2026",
-            baseProduct: "Классическое худи",
-            baseImage: "/cloth-front.png",
-            resultImage: "/lunemier-design-perfect.png",
-            prints: [
-                "https://i.pinimg.com/736x/81/eb/7a/81eb7a8dd4bbd4720ad2ed935b4d3c4b.jpg",
-                "https://i.pinimg.com/736x/81/eb/7a/81eb7a8dd4bbd4720ad2ed935b4d3c4b.jpg",
-            ],
-        },
-    ];
+    const { appState } = useContext(AppStateContext);
+    const [customs, setCustoms] = useState([]);
+
+    useEffect(() => {
+        if (!appState.isAuthenticated) return;
+        const token = localStorage.getItem("token");
+
+        fetch("/api/me/customs", {
+            headers: { Authorization: `Bearer ${token}` },
+        })
+            .then((res) => res.json())
+            .then((data) => {
+                if (data.customs) setCustoms(data.customs);
+            })
+            .catch((err) => console.error(err));
+    }, [appState.isAuthenticated]);
+
+    const formatDate = (dateStr) => {
+        if (!dateStr) return "";
+        return new Date(dateStr).toLocaleDateString("ru-RU");
+    };
+
+    // Я проверяю, есть ли у основы фото.
+    const getBaseImage = (custom) => {
+        if (
+            custom.baseProduct &&
+            custom.baseProduct.photos &&
+            custom.baseProduct.photos.length > 0
+        ) {
+            return `/${custom.baseProduct.photos[0].filePath.replace(/\\/g, "/")}`;
+        }
+        return "/cloth-front.png";
+    };
+
+    const getResultImage = (custom) => {
+        if (custom.photos && custom.photos.length > 0) {
+            return `/${custom.photos[0].filePath.replace(/\\/g, "/")}`;
+        }
+        return "/lunemier-design-perfect.png";
+    };
+
+    const handleAddToCart = async (productId) => {
+        try {
+            const token = localStorage.getItem("token");
+            const res = await fetch("/api/me/cart", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${token}`,
+                },
+                body: JSON.stringify({ productId, quantity: 1 }),
+            });
+            if (res.ok) alert("Твой дизайн отправлен в корзину.");
+            else alert("Ошибка добавления.");
+        } catch (err) {
+            console.error(err);
+        }
+    };
+
+    const handleDelete = async (productId) => {
+        if (!window.confirm("Удалить этот дизайн навсегда?")) return;
+        try {
+            const token = localStorage.getItem("token");
+            const res = await fetch(`/api/me/customs/${productId}`, {
+                method: "DELETE",
+                headers: { Authorization: `Bearer ${token}` },
+            });
+            if (res.ok) {
+                setCustoms((prev) =>
+                    prev.filter((c) => c.productId !== productId),
+                );
+                alert("Уничтожено.");
+            } else {
+                alert("Ошибка удаления.");
+            }
+        } catch (err) {
+            console.error(err);
+        }
+    };
 
     return (
         <section className="profile-customs-root">
             <h2 className="profile-customs-header">Мои кастомные товары</h2>
 
             <div className="profile-customs-list">
-                {mockCustoms.map((item) => (
-                    <div className="profile-custom-card" key={item.id}>
+                {customs.length === 0 && (
+                    <p style={{ color: "var(--color-dark-brown)" }}>
+                        Ты еще ничего не создавала.
+                    </p>
+                )}
+                {customs.map((item) => (
+                    <div className="profile-custom-card" key={item.productId}>
                         <div className="profile-custom-card-header">
                             <p className="profile-custom-name">{item.name}</p>
                             <p className="profile-custom-date">
-                                Создан: {item.createdAt}
+                                Создан: {formatDate(item.createdAt)}
                             </p>
                         </div>
 
                         <p className="profile-custom-base-name">
-                            Основа: <span>{item.baseProduct}</span>
+                            Основа:{" "}
+                            <span>
+                                {item.baseProduct?.name || "Неизвестно"}
+                            </span>
                         </p>
 
                         <div className="profile-custom-images-group">
@@ -52,7 +115,7 @@ function ProfileCustoms() {
                                     Основа
                                 </p>
                                 <img
-                                    src={item.baseImage}
+                                    src={getBaseImage(item)}
                                     alt="Base"
                                     className="profile-custom-img"
                                 />
@@ -78,38 +141,43 @@ function ProfileCustoms() {
                                     Результат
                                 </p>
                                 <img
-                                    src={item.resultImage}
+                                    src={getResultImage(item)}
                                     alt="Result"
                                     className="profile-custom-img"
                                 />
                             </div>
                         </div>
 
-                        <div className="profile-custom-prints-group">
-                            <p className="profile-custom-prints-label">
-                                Использованные принты:
-                            </p>
-                            <div className="profile-custom-prints-list">
-                                {item.prints.map((printUrl, index) => (
-                                    <img
-                                        key={index}
-                                        src={printUrl}
-                                        alt={`print-${index}`}
-                                        className="profile-custom-print-thumb"
-                                    />
-                                ))}
+                        {item.customPhotos && item.customPhotos.length > 0 && (
+                            <div className="profile-custom-prints-group">
+                                <p className="profile-custom-prints-label">
+                                    Использованные принты:
+                                </p>
+                                <div className="profile-custom-prints-list">
+                                    {item.customPhotos.map((print) => (
+                                        <img
+                                            key={print.customProductPhotoId}
+                                            src={`/${print.filePath.replace(/\\/g, "/")}`}
+                                            alt="print-thumb"
+                                            className="profile-custom-print-thumb"
+                                        />
+                                    ))}
+                                </div>
                             </div>
-                        </div>
+                        )}
 
                         <div className="profile-custom-actions">
-                            <button className="profile-custom-btn-cart">
+                            <button
+                                className="profile-custom-btn-cart"
+                                onClick={() => handleAddToCart(item.productId)}
+                            >
                                 Добавить в корзину
                             </button>
                             <div className="profile-custom-actions-right">
-                                <button className="profile-custom-btn-edit">
-                                    Изменить
-                                </button>
-                                <button className="profile-custom-btn-delete">
+                                <button
+                                    className="profile-custom-btn-delete"
+                                    onClick={() => handleDelete(item.productId)}
+                                >
                                     Удалить
                                 </button>
                             </div>

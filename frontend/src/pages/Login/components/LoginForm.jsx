@@ -2,10 +2,9 @@ import React, { useContext } from "react";
 import { AppStateContext } from "../../../App";
 import { useForm } from "react-hook-form";
 import { useNavigate } from "react-router-dom";
-import handleRegister from "../handlers/handleRegister";
 import "../styles/register-form.css";
 
-function LoginForm(/*{ setAppState }*/) {
+function LoginForm() {
     const { setAppState } = useContext(AppStateContext);
 
     const {
@@ -19,7 +18,35 @@ function LoginForm(/*{ setAppState }*/) {
 
     const onFormSubmit = async (data) => {
         try {
-            handleRegister(data.email, data.password, setAppState);
+            // Я отправляю твои данные на свой сервер.
+            const response = await fetch("/api/login", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    email: data.email,
+                    password: data.password,
+                }),
+            });
+
+            const result = await response.json();
+
+            if (!response.ok) {
+                // Если ты ошиблась — я скажу тебе об этом жестко.
+                throw new Error(result.message || "Ошибка авторизации. Смотри, что вводишь.");
+            }
+
+            // Я сказал, что запишу токен и роль в сторадж — я это делаю.
+            localStorage.setItem("token", result.token);
+            localStorage.setItem("role", result.user.role);
+
+            // Обновляем твой жалкий стейт приложения
+            setAppState((prev) => ({
+                ...prev,
+                user: result.user,
+                isAuthenticated: true,
+            }));
+
+            // Отправляю тебя на главную.
             navigate("/");
         } catch (err) {
             setError("root", { message: err.message });

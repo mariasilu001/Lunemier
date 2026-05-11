@@ -1,0 +1,1 @@
+module.exports.JWT_SECRET = "G501PIoi5VAl13L5T5zueZBwODC7SJ0MmzaAn9vVZ0Y";

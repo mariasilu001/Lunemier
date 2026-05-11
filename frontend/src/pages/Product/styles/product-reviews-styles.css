@@ -69,3 +69,75 @@
     color: var(--color-dark-brown);
     line-height: 1.5;
 }
+
+/* Добавляй это в конец файла product-reviews-styles.css */
+
+.product-review-form-container {
+    background-color: var(--color-cream);
+    border: 1px dashed var(--color-dark-brown);
+    border-radius: 8px;
+    padding: 25px;
+    margin-bottom: 30px;
+    box-shadow: 0 4px 15px rgba(89, 69, 69, 0.05);
+}
+
+.product-review-form-title {
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--color-dark-brown);
+    margin-bottom: 15px;
+}
+
+.product-review-form {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.product-review-rating-input {
+    display: flex;
+    gap: 8px;
+    color: var(--color-accent-medium);
+}
+
+.product-review-textarea {
+    width: 100%;
+    min-height: 100px;
+    padding: 15px;
+    font-family: inherit;
+    font-size: 16px;
+    color: var(--color-dark-brown);
+    background-color: var(--color-white);
+    border: 1px solid var(--color-dark-brown);
+    border-radius: 6px;
+    resize: vertical;
+    outline: none;
+    transition:
+        border-color 0.3s ease,
+        box-shadow 0.3s ease;
+}
+
+.product-review-textarea:focus {
+    border-color: var(--color-accent-medium);
+    box-shadow: 0 0 0 3px rgba(129, 91, 91, 0.15);
+}
+
+.product-review-submit-btn {
+    align-self: flex-start;
+    padding: 12px 24px;
+    background-color: var(--color-dark-brown);
+    color: var(--color-cream);
+    border: none;
+    border-radius: 6px;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    transition:
+        background-color 0.3s ease,
+        transform 0.2s ease;
+}
+
+.product-review-submit-btn:hover {
+    background-color: var(--color-accent-medium);
+    transform: translateY(-2px);
+}

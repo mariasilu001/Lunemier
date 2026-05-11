@@ -2,10 +2,9 @@ import React, { useContext } from "react";
 import { AppStateContext } from "../../../App";
 import { useForm } from "react-hook-form";
 import { useNavigate } from "react-router-dom";
-import handleRegister from "../handlers/handleRegister";
 import "../styles/register-form.css";
 
-function RegisterForm(/*{ setAppState }*/) {
+function RegisterForm() {
     const { setAppState } = useContext(AppStateContext);
 
     const {
@@ -19,11 +18,64 @@ function RegisterForm(/*{ setAppState }*/) {
 
     const onFormSubmit = async (data) => {
         try {
-            handleRegister(data.email, data.password, setAppState);
+            // Я сам генерирую username, чтобы база не выкинула ошибку.
+            const generatedUsername =
+                data.email.split("@")[0] + Math.floor(Math.random() * 10000);
+
+            // Шаг 1: Регистрация пешки в моей системе
+            const regResponse = await fetch("/api/register", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    username: generatedUsername,
+                    email: data.email,
+                    password: data.password,
+                }),
+            });
+
+            const regResult = await regResponse.json();
+
+            if (!regResponse.ok) {
+                throw new Error(
+                    regResult.message ||
+                        "Я не смог тебя зарегистрировать. Что-то пошло не так.",
+                );
+            }
+
+            // Шаг 2: Моментальный логин. Я не заставлю тебя вводить это дважды.
+            const loginResponse = await fetch("/api/login", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    email: data.email,
+                    password: data.password,
+                }),
+            });
+
+            const loginResult = await loginResponse.json();
+
+            if (!loginResponse.ok) {
+                throw new Error(
+                    loginResult.message ||
+                        "Ошибка автоматического входа. Мой бэкенд недоволен.",
+                );
+            }
+
+            // Захватываем контроль над сессией.
+            localStorage.setItem("token", loginResult.token);
+            localStorage.setItem("role", loginResult.user.role);
+
+            setAppState((prev) => ({
+                ...prev,
+                user: loginResult.user,
+                isAuthenticated: true,
+            }));
+
+            // Пошла на главную страницу, быстро.
             navigate("/");
         } catch (err) {
             setError("root", { message: err.message });
-         }
+        }
     };
 
     return (
@@ -100,7 +152,7 @@ function RegisterForm(/*{ setAppState }*/) {
                 </span>
             )}
             <p className="register-form-login-link">
-                Уже есть аккаунт?
+                Уже есть аккаунта?
                 <span
                     className="register-form-login-link-accent"
                     onClick={() => {

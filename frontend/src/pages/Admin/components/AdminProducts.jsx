@@ -1,25 +1,27 @@
-import React, { useState, useContext } from "react";
+import React, { useState, useEffect } from "react";
 import AdminProductModal from "./AdminProductModal";
-import { AppStateContext } from "../../../App";
 import "../styles/admin-products-styles.css";
 
 function AdminProducts() {
-    const { appState, setAppState } = useContext(AppStateContext);
-
+    const [products, setProducts] = useState([]);
     const [isModalOpen, setIsModalOpen] = useState(false);
-
     const [productToEdit, setProductToEdit] = useState(null);
 
-    const categories = [
-        { id: 1, name: "Футболки" },
-        { id: 2, name: "Худи" },
-        { id: 3, name: "Платья" },
-    ];
+    const fetchProducts = () => {
+        const token = localStorage.getItem("token");
+        fetch("/api/admin/products", {
+            headers: { Authorization: `Bearer ${token}` },
+        })
+            .then((res) => res.json())
+            .then((data) => {
+                if (data.products) setProducts(data.products);
+            })
+            .catch((err) => console.error("Я не смог загрузить товары:", err));
+    };
 
-    const suppliers = [
-        { id: 1, name: "Ткани-Опт" },
-        { id: 2, name: "LuneMier Factory" },
-    ];
+    useEffect(() => {
+        fetchProducts();
+    }, []);
 
     const handleAddClick = () => {
         setProductToEdit(null);
@@ -31,42 +33,49 @@ function AdminProducts() {
         setIsModalOpen(true);
     };
 
-    const handleDeleteClick = (productId) => {
-        if(window.confirm("Отправить этот товар в архив? Он больше не будет доступен пользователям.")) {
-            setAppState(prev => ({
-                ...prev,
-                products: prev.products.map(p => 
-                    p.product_id === productId 
-                        ? { ...p, deleted_at: new Date().toISOString() } 
-                        : p
-                )
-            }));
+    const handleDeleteClick = async (productId) => {
+        if (
+            !window.confirm(
+                "Отправить этот товар в архив? Пользователи больше его не увидят.",
+            )
+        )
+            return;
+
+        try {
+            const token = localStorage.getItem("token");
+            const res = await fetch(`/api/admin/products/${productId}`, {
+                method: "DELETE",
+                headers: { Authorization: `Bearer ${token}` },
+            });
+
+            if (res.ok) {
+                // Если я заархивировал его на сервере, обновляем и тут.
+                setProducts((prev) =>
+                    prev.map((p) =>
+                        p.productId === productId
+                            ? { ...p, deletedAt: new Date().toISOString() }
+                            : p,
+                    ),
+                );
+            } else {
+                const err = await res.json();
+                alert(err.message || "Я не смог удалить товар.");
+            }
+        } catch (error) {
+            console.error(error);
         }
     };
 
-    const handleSaveProduct = (formData) => {
-        if (productToEdit) {
-            setAppState((prev) => ({
-                ...prev,
-                products: prev.products.map((p) =>
-                    p.product_id === formData.product_id ? formData : p,
-                ),
-            }));
-        } else {
-            const newProduct = {
-                ...formData,
-                product_id: Date.now(),
-                created_at: new Date().toLocaleDateString("ru-RU"),
-            };
-            setAppState((prev) => ({
-                ...prev,
-                products: [newProduct, ...prev.products],
-            }));
-        }
+    const handleModalClose = (wasUpdated) => {
         setIsModalOpen(false);
+        // Если что-то изменилось, я заставляю компонент перезапросить данные.
+        if (wasUpdated) fetchProducts();
     };
 
-    const productsList = appState.products || [];
+    const formatDate = (dateStr) => {
+        if (!dateStr) return "";
+        return new Date(dateStr).toLocaleDateString("ru-RU");
+    };
 
     return (
         <section className="admin-products-root">
@@ -74,7 +83,7 @@ function AdminProducts() {
                 <div>
                     <h2 className="admin-products-header">Каталог и товары</h2>
                     <p className="admin-products-subtitle">
-                        Управление ядром системы ({productsList.length} позиций)
+                        Управление ядром системы ({products.length} позиций)
                     </p>
                 </div>
                 <button
@@ -98,38 +107,46 @@ function AdminProducts() {
                         </tr>
                     </thead>
                     <tbody>
-                        {productsList.map((product) => (
-                            <tr key={product.product_id}>
+                        {products.map((product) => (
+                            <tr
+                                key={product.productId}
+                                className={
+                                    product.deletedAt ? "banned-row" : ""
+                                }
+                            >
                                 <td className="font-monospace">
-                                    #{product.product_id}
+                                    #{product.productId}
                                 </td>
                                 <td className="font-bold">{product.name}</td>
                                 <td>
-                                    {categories.find(
-                                        (c) => c.id === product.category_id,
-                                    )?.name || "Без категории"}
+                                    {product.category?.name || "Без категории"}
                                 </td>
                                 <td>
                                     <div className="admin-flags-group">
-                                        {product.is_base && (
+                                        {product.isBase && (
                                             <span className="badge badge-base">
                                                 Base
                                             </span>
                                         )}
-                                        {product.is_custom && (
+                                        {product.isCustom && (
                                             <span className="badge badge-custom">
                                                 Custom
                                             </span>
                                         )}
-                                        {!product.is_base &&
-                                            !product.is_custom && (
+                                        {!product.isBase &&
+                                            !product.isCustom && (
                                                 <span className="badge badge-regular">
                                                     Regular
                                                 </span>
                                             )}
+                                        {product.deletedAt && (
+                                            <span className="badge badge-cancelled">
+                                                Архив
+                                            </span>
+                                        )}
                                     </div>
                                 </td>
-                                <td>{product.created_at}</td>
+                                <td>{formatDate(product.createdAt)}</td>
                                 <td>
                                     <button
                                         className="admin-btn-text"
@@ -137,16 +154,18 @@ function AdminProducts() {
                                     >
                                         Редактировать
                                     </button>
-                                    <button
-                                        className="admin-btn-text-delete"
-                                        onClick={() =>
-                                            handleDeleteClick(
-                                                product.product_id,
-                                            )
-                                        }
-                                    >
-                                        Удалить
-                                    </button>
+                                    {!product.deletedAt && (
+                                        <button
+                                            className="admin-btn-text-delete"
+                                            onClick={() =>
+                                                handleDeleteClick(
+                                                    product.productId,
+                                                )
+                                            }
+                                        >
+                                            В архив
+                                        </button>
+                                    )}
                                 </td>
                             </tr>
                         ))}
@@ -154,14 +173,13 @@ function AdminProducts() {
                 </table>
             </div>
 
-            <AdminProductModal
-                isOpen={isModalOpen}
-                onClose={() => setIsModalOpen(false)}
-                onSave={handleSaveProduct}
-                categories={categories}
-                suppliers={suppliers}
-                productToEdit={productToEdit}
-            />
+            {isModalOpen && (
+                <AdminProductModal
+                    isOpen={isModalOpen}
+                    onClose={handleModalClose}
+                    productToEdit={productToEdit}
+                />
+            )}
         </section>
     );
 }

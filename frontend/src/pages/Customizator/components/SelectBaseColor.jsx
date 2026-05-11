@@ -1,9 +1,7 @@
-import React, { useContext } from "react";
+import React from "react";
 import "../styles/select-base-color.css";
-import { AppStateContext } from "../../../App";
 
-function SelectBaseColor({ color, setColor }) {
-    const { appState, setAppState } = useContext(AppStateContext);
+function SelectBaseColor({ color, setColor, product }) {
     const presetColors = [
         "#ffffff",
         "#000000",
@@ -15,8 +13,11 @@ function SelectBaseColor({ color, setColor }) {
     return (
         <div className="select-base-color-root">
             <div className="select-base-header-group">
-                <p className="select-base-title">{appState.products[0].name}</p>
-                <span className="select-base-subtitle">{appState.products[0].description}</span>
+                {/* Беру данные из реальной базы, которую мы подтянули */}
+                <p className="select-base-title">{product?.name || "Основа"}</p>
+                <span className="select-base-subtitle">
+                    {product?.description || "Базовая модель для кастома"}
+                </span>
             </div>
 
             <div className="select-base-color-section">

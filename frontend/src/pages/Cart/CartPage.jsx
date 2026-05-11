@@ -1,78 +1,169 @@
-import React, { useContext, useState } from "react";
+import React, { useContext, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { AppStateContext } from "../../App";
 import Header from "../../layouts/MainLayout/components/Header";
 import "./styles/cart-styles.css";
 
 function CartPage() {
-    const { appState, setAppState } = useContext(AppStateContext);
+    const { appState } = useContext(AppStateContext);
     const navigate = useNavigate();
+
+    // Я забрал контроль над состоянием. Теперь данные настоящие.
+    const [cartItems, setCartItems] = useState([]);
+    const [pickupPoints, setPickupPoints] = useState([]);
+    const [paymentMethods, setPaymentMethods] = useState([]);
 
     const [pickupPoint, setPickupPoint] = useState("");
     const [paymentMethod, setPaymentMethod] = useState("");
 
-    const cartItems = appState.cart_items || [];
-    const products = appState.products || [];
-    const prices = appState.prices || [];
+    // Я сам схожу на сервер и достану тебе всё, что нужно.
+    useEffect(() => {
+        if (!appState.isAuthenticated) {
+            alert("Корзина только для своих. Сначала авторизуйся.");
+            navigate("/login");
+            return;
+        }
 
-    const pickupPoints = (appState.pickup_points || []).filter(
-        (p) => !p.deleted_at,
-    );
-    const paymentMethods = (appState.payment_methods || []).filter(
-        (p) => p.is_active,
-    );
+        const token = localStorage.getItem("token");
 
-    const displayItems = cartItems.map((item) => {
-        const product =
-            products.find((p) => p.product_id === item.product_id) || {};
-        const activePriceObj = prices.find(
-            (p) => p.product_id === item.product_id && p.is_active,
-        );
-        const price = activePriceObj ? activePriceObj.price : 0;
-        const image =
-            product.front_photo ||
-            (product.gallery && product.gallery[0]) ||
-            "https://i.pinimg.com/736x/81/eb/7a/81eb7a8dd4bbd4720ad2ed935b4d3c4b.jpg";
+        // Запрашиваю твою корзину
+        fetch("/api/me/cart", {
+            headers: { Authorization: `Bearer ${token}` },
+        })
+            .then((res) => res.json())
+            .then((data) => {
+                if (data.cartItems) setCartItems(data.cartItems);
+            })
+            .catch((err) =>
+                console.error("Я не смог загрузить твою корзину:", err),
+            );
 
-        return {
-            ...item,
-            product_name: product.name,
-            price: price,
-            image: image,
-        };
-    });
+        // Запрашиваю ПВЗ
+        fetch("/api/pickup-points")
+            .then((res) => res.json())
+            .then((data) => {
+                if (data.pickupPoints) setPickupPoints(data.pickupPoints);
+            })
+            .catch((err) => console.error("Я не смог загрузить ПВЗ:", err));
 
-    const totalAmount = displayItems.reduce(
-        (sum, item) => sum + item.price * item.quantity,
-        0,
-    );
+        // Запрашиваю методы оплаты
+        fetch("/api/payment-methods")
+            .then((res) => res.json())
+            .then((data) => {
+                if (data.paymentMethods) setPaymentMethods(data.paymentMethods);
+            })
+            .catch((err) =>
+                console.error("Я не смог загрузить методы оплаты:", err),
+            );
+    }, [appState.isAuthenticated, navigate]);
 
-    const updateQuantity = (cartItemId, delta) => {
-        setAppState((prev) => ({
-            ...prev,
-            cart_items: prev.cart_items.map((ci) => {
-                if (ci.cart_item_id === cartItemId) {
-                    const newQuantity = ci.quantity + delta;
-                    return newQuantity > 0
-                        ? { ...ci, quantity: newQuantity }
-                        : ci;
-                }
-                return ci;
-            }),
-        }));
+    // Жестко извлекаем цену и картинку из ответа бэкенда
+    const getPrice = (product) => {
+        if (product && product.prices && product.prices.length > 0) {
+            return parseFloat(product.prices[0].price);
+        }
+        return 0;
     };
 
-    const removeItem = (cartItemId) => {
-        setAppState((prev) => ({
-            ...prev,
-            cart_items: prev.cart_items.filter(
-                (ci) => ci.cart_item_id !== cartItemId,
-            ),
-        }));
+    const getImagePath = (product) => {
+        if (product && product.photos && product.photos.length > 0) {
+            return `/${product.photos[0].filePath.replace(/\\/g, "/")}`;
+        }
+        return "https://i.pinimg.com/736x/81/eb/7a/81eb7a8dd4bbd4720ad2ed935b4d3c4b.jpg";
     };
 
-    const handleCheckout = () => {
-        alert("Заказ оформлен. Я проконтролирую его доставку.");
+    const totalAmount = cartItems.reduce((sum, item) => {
+        return sum + getPrice(item.product) * item.quantity;
+    }, 0);
+
+    const updateQuantity = async (cartItemId, currentQuantity, delta) => {
+        const newQuantity = currentQuantity + delta;
+        // Я не позволю ставить количество меньше 1. Хочешь удалить — нажимай крестик.
+        if (newQuantity < 1) return;
+
+        try {
+            const token = localStorage.getItem("token");
+            const res = await fetch(`/api/me/cart/${cartItemId}`, {
+                method: "PUT",
+                headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${token}`,
+                },
+                body: JSON.stringify({ quantity: newQuantity }),
+            });
+
+            if (res.ok) {
+                // Если я обновил базу, я обновлю и твой интерфейс
+                setCartItems((prev) =>
+                    prev.map((item) =>
+                        item.cartItemId === cartItemId
+                            ? { ...item, quantity: newQuantity }
+                            : item,
+                    ),
+                );
+            } else {
+                const err = await res.json();
+                alert(err.message || "Мой бэкенд отклонил это изменение.");
+            }
+        } catch (error) {
+            console.error(error);
+        }
+    };
+
+    const removeItem = async (cartItemId) => {
+        try {
+            const token = localStorage.getItem("token");
+            const res = await fetch(`/api/me/cart/${cartItemId}`, {
+                method: "DELETE",
+                headers: { Authorization: `Bearer ${token}` },
+            });
+
+            if (res.ok) {
+                setCartItems((prev) =>
+                    prev.filter((item) => item.cartItemId !== cartItemId),
+                );
+            } else {
+                const err = await res.json();
+                alert(err.message || "Я не смог удалить товар.");
+            }
+        } catch (error) {
+            console.error(error);
+        }
+    };
+
+    const handleCheckout = async () => {
+        if (!pickupPoint || !paymentMethod) {
+            alert("Выбери пункт выдачи и способ оплаты. Не зли меня.");
+            return;
+        }
+
+        try {
+            const token = localStorage.getItem("token");
+            const res = await fetch("/api/me/checkout", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${token}`,
+                },
+                body: JSON.stringify({
+                    pickupPointId: pickupPoint,
+                    paymentMethodId: paymentMethod,
+                }),
+            });
+
+            const result = await res.json();
+
+            if (res.ok) {
+                alert("Заказ оформлен. Я проконтролирую его доставку.");
+                setCartItems([]); // Я очищаю твою корзину, как сделал это на сервере
+                navigate("/profile/orders"); // Иди в профиль, любуйся заказом
+            } else {
+                alert(result.message || "Ошибка оформления заказа.");
+            }
+        } catch (error) {
+            console.error(error);
+            alert("Сбой в системе.");
+        }
     };
 
     return (
@@ -81,68 +172,78 @@ function CartPage() {
             <div className="cart-page-content">
                 <div className="cart-items-section">
                     <h1 className="cart-title">Твоя корзина</h1>
-                    {displayItems.length === 0 ? (
+                    {cartItems.length === 0 ? (
                         <p className="cart-empty">
                             Корзина пуста. Я жду, когда ты ее наполнишь.
                         </p>
                     ) : (
                         <div className="cart-items-list">
-                            {displayItems.map((item) => (
-                                <div
-                                    className="cart-item-card"
-                                    key={item.cart_item_id}
-                                >
-                                    <img
-                                        src={item.image}
-                                        alt="product"
-                                        className="cart-item-img"
-                                        onClick={() =>
-                                            navigate(`/p/${item.product_id}`)
-                                        }
-                                    />
-                                    <div className="cart-item-info">
-                                        <p className="cart-item-name">
-                                            {item.product_name}
-                                        </p>
-                                        <p className="cart-item-price">
-                                            {item.price} ₽
-                                        </p>
-                                    </div>
-                                    <div className="cart-item-controls">
-                                        <div className="quantity-group">
+                            {cartItems.map((item) => {
+                                const product = item.product;
+                                const price = getPrice(product);
+                                const image = getImagePath(product);
+
+                                return (
+                                    <div
+                                        className="cart-item-card"
+                                        key={item.cartItemId}
+                                    >
+                                        <img
+                                            src={image}
+                                            alt={product?.name}
+                                            className="cart-item-img"
+                                            onClick={() =>
+                                                navigate(
+                                                    `/p/${product.productId}`,
+                                                )
+                                            }
+                                        />
+                                        <div className="cart-item-info">
+                                            <p className="cart-item-name">
+                                                {product?.name}
+                                            </p>
+                                            <p className="cart-item-price">
+                                                {price} ₽
+                                            </p>
+                                        </div>
+                                        <div className="cart-item-controls">
+                                            <div className="quantity-group">
+                                                <button
+                                                    onClick={() =>
+                                                        updateQuantity(
+                                                            item.cartItemId,
+                                                            item.quantity,
+                                                            -1,
+                                                        )
+                                                    }
+                                                >
+                                                    -
+                                                </button>
+                                                <span>{item.quantity}</span>
+                                                <button
+                                                    onClick={() =>
+                                                        updateQuantity(
+                                                            item.cartItemId,
+                                                            item.quantity,
+                                                            1,
+                                                        )
+                                                    }
+                                                >
+                                                    +
+                                                </button>
+                                            </div>
                                             <button
+                                                className="cart-item-delete"
                                                 onClick={() =>
-                                                    updateQuantity(
-                                                        item.cart_item_id,
-                                                        -1,
-                                                    )
+                                                    removeItem(item.cartItemId)
                                                 }
                                             >
-                                                -
-                                            </button>
-                                            <span>{item.quantity}</span>
-                                            <button
-                                                onClick={() =>
-                                                    updateQuantity(
-                                                        item.cart_item_id,
-                                                        1,
-                                                    )
-                                                }
-                                            >
-                                                +
+                                                ✕
                                             </button>
                                         </div>
-                                        <button
-                                            className="cart-item-delete"
-                                            onClick={() =>
-                                                removeItem(item.cart_item_id)
-                                            }
-                                        >
-                                            ✕
-                                        </button>
                                     </div>
-                                </div>
-                            ))}
+                                );
+                            })}
                         </div>
                     )}
                 </div>
@@ -159,8 +260,8 @@ function CartPage() {
                                 <option value="">Выбери ПВЗ...</option>
                                 {pickupPoints.map((p) => (
                                     <option
-                                        key={p.pickup_point_id}
-                                        value={p.pickup_point_id}
+                                        key={p.pickupPointId}
+                                        value={p.pickupPointId}
                                     >
                                         г. {p.city}, ул. {p.street}, д.{" "}
                                         {p.building}
@@ -179,8 +280,8 @@ function CartPage() {
                                 <option value="">Выбери способ...</option>
                                 {paymentMethods.map((m) => (
                                     <option
-                                        key={m.payment_method_id}
-                                        value={m.payment_method_id}
+                                        key={m.paymentMethodId}
+                                        value={m.paymentMethodId}
                                     >
                                         {m.name}
                                     </option>
@@ -192,7 +293,7 @@ function CartPage() {
                             <div className="summary-row">
                                 <span>Итого к оплате:</span>
                                 <span className="summary-total">
-                                    {totalAmount} ₽
+                                    {totalAmount.toFixed(2)} ₽
                                 </span>
                             </div>
                         </div>
@@ -200,7 +301,7 @@ function CartPage() {
                         <button
                             className="checkout-submit-btn"
                             disabled={
-                                displayItems.length === 0 ||
+                                cartItems.length === 0 ||
                                 !pickupPoint ||
                                 !paymentMethod
                             }

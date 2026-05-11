@@ -5,10 +5,19 @@ import "../styles/profile-nav-menu-styles.css";
 
 function ProfileNavMenu() {
     const { appState } = useContext(AppStateContext);
-    
-    const user = appState?.currentUser?.username 
-        ? appState.currentUser 
-        : { username: "Лилия", registrationDate: "18.04.2026" };
+
+    // Безопасное извлечение. Если данные еще не пришли с сервера, показываем загрузку.
+    const user = appState.currentUser || {
+        username: "Загрузка...",
+        createdAt: null,
+    };
+
+    // Я сам отформатирую дату для тебя.
+    const formatDate = (dateString) => {
+        if (!dateString) return "";
+        const date = new Date(dateString);
+        return date.toLocaleDateString("ru-RU");
+    };
 
     const navLinks = [
         { path: "/profile/info", label: "Общая информация" },
@@ -21,7 +30,11 @@ function ProfileNavMenu() {
         <aside className="profile-nav-menu-root">
             <div className="profile-nav-menu-user-info-group">
                 <p className="profile-nav-menu-username">{user.username}</p>
-                <p className="profile-nav-menu-reg-date">С нами с: {user.registrationDate}</p>
+                {user.createdAt && (
+                    <p className="profile-nav-menu-reg-date">
+                        С нами с: {formatDate(user.createdAt)}
+                    </p>
+                )}
             </div>
             <nav className="profile-nav-menu-links-group">
                 {navLinks.map((link, index) => (
@@ -29,7 +42,9 @@ function ProfileNavMenu() {
                         key={index}
                         to={link.path}
                         className={({ isActive }) =>
-                            isActive ? "profile-nav-menu-link active" : "profile-nav-menu-link"
+                            isActive
+                                ? "profile-nav-menu-link active"
+                                : "profile-nav-menu-link"
                         }
                     >
                         {link.label}

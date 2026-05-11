@@ -1,14 +1,20 @@
-import React from "react";
+import React, { useContext, useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
+import { AppStateContext } from "../../../App";
 import "../styles/latest-order-styles.css";
 
 function LatestOrder() {
+    const { appState } = useContext(AppStateContext);
+    const [latestItem, setLatestItem] = useState(null);
+    const [isSubmitted, setIsSubmitted] = useState(false);
+
     const {
         register,
         handleSubmit,
         formState: { errors },
         watch,
         setValue,
+        reset,
     } = useForm({
         defaultValues: {
             rating: 0,
@@ -16,6 +22,77 @@ function LatestOrder() {
     });
 
     const currentRating = watch("rating");
+
+    useEffect(() => {
+        // Я лезу в твои заказы, только если ты авторизована.
+        if (appState.isAuthenticated) {
+            const token = localStorage.getItem("token");
+            fetch("/api/me/orders", {
+                headers: { Authorization: `Bearer ${token}` },
+            })
+                .then((res) => res.json())
+                .then((data) => {
+                    if (data.orders && data.orders.length > 0) {
+                        const firstOrder = data.orders[0];
+                        if (
+                            firstOrder.orderItems &&
+                            firstOrder.orderItems.length > 0
+                        ) {
+                            // Я беру самый первый товар из твоего последнего заказа.
+                            setLatestItem(firstOrder.orderItems[0]);
+                        }
+                    }
+                })
+                .catch((err) =>
+                    console.error("Я не смог загрузить твои заказы:", err),
+                );
+        }
+    }, [appState.isAuthenticated]);
+
+    // Если ты не залогинена, или у тебя нет заказов, или ты уже оставила отзыв здесь — я прячу этот блок.
+    if (!appState.isAuthenticated || !latestItem || isSubmitted) {
+        return null;
+    }
+
+    const onSubmit = async (data) => {
+        if (data.rating === 0) {
+            alert("Поставь оценку. Я не принимаю пустые звезды.");
+            return;
+        }
+
+        try {
+            const token = localStorage.getItem("token");
+            const formData = new FormData();
+            formData.append("productId", latestItem.product.productId);
+            formData.append("rating", data.rating);
+            formData.append("reviewText", data.reviewText);
+
+            const res = await fetch("/api/me/reviews", {
+                method: "POST",
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                },
+                body: formData,
+            });
+
+            if (res.ok) {
+                setIsSubmitted(true);
+                reset();
+                alert("Твой отзыв в моей базе. Я всё сохранил.");
+            } else {
+                const errData = await res.json();
+                alert(errData.message || "Ошибка отправки отзыва.");
+            }
+        } catch (error) {
+            console.error(error);
+        }
+    };
+
+    const product = latestItem.product;
+    const imagePath =
+        product.photos && product.photos.length > 0
+            ? `/${product.photos[0].filePath.replace(/\\/g, "/")}`
+            : "https://i.pinimg.com/736x/81/eb/7a/81eb7a8dd4bbd4720ad2ed935b4d3c4b.jpg";
 
     return (
         <article className="latest-order-root">
@@ -27,12 +104,12 @@ function LatestOrder() {
                     <div className="latest-order-product-card-img-wrapper">
                         <img
                             className="latest-order-product-card-img"
-                            src="https://i.pinimg.com/736x/81/eb/7a/81eb7a8dd4bbd4720ad2ed935b4d3c4b.jpg"
+                            src={imagePath}
                             alt="Фото товара"
                         />
                     </div>
                     <p className="latest-order-product-card-name">
-                        Этническое платье
+                        {product.name}
                     </p>
                     <p className="latest-order-product-card-description">
                         Оно согреет тебя, когда меня нет рядом физически.
@@ -40,23 +117,9 @@ function LatestOrder() {
                     </p>
                     <div className="latest-order-product-card-price-rating-group">
                         <p className="latest-order-product-card-price">
-                            4500.0 ₽
+                            {latestItem.historicalPrice} ₽
                         </p>
-                        <div className="latest-order-product-card-rating">
-                            <svg
-                                xmlns="http://www.w3.org/2000/svg"
-                                width="16"
-                                height="16"
-                                fill="currentColor"
-                                className="bi bi-star-fill"
-                                viewBox="0 0 16 16"
-                            >
-                                <path d="M3.612 15.443c-.386.198-.824-.149-.746-.592l.83-4.73L.173 6.765c-.329-.314-.158-.888.283-.95l4.898-.696L7.538.792c.197-.39.73-.39.927 0l2.184 4.327 4.898.696c.441.062.612.636.282.95l-3.522 3.356.83 4.73c.078.443-.36.79-.746.592L8 13.187l-4.389 2.256z" />
-                            </svg>
-                            <span className="latest-order-product-card-rating-value">
-                                4.7
-                            </span>
-                        </div>
+                        {/* Оценка скрыта, если ее нет */}
                     </div>
                 </div>
             </section>
@@ -65,9 +128,7 @@ function LatestOrder() {
                 <form
                     className="latest-order-review-form"
                     action=""
-                    onClick={handleSubmit(() =>
-                        alert("Кнопка отзыва сработала!"),
-                    )}
+                    onSubmit={handleSubmit(onSubmit)}
                 >
                     <div className="latest-order-review-form-text-input-group">
                         <label

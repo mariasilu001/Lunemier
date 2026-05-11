@@ -8,7 +8,8 @@ function ProfileInfo() {
     const { appState, setAppState } = useContext(AppStateContext);
     const navigate = useNavigate();
 
-    const user = appState?.currentUser || { username: "lily_pink" };
+    // Беру реального юзера или пустую заглушку на время загрузки
+    const user = appState?.currentUser || {};
 
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [currentEditField, setCurrentEditField] = useState(null);
@@ -18,40 +19,62 @@ function ProfileInfo() {
         setIsModalOpen(true);
     };
 
-    const handleSaveField = (key, newValue) => {
-        setAppState((prev) => ({
-            ...prev,
-            currentUser: {
-                ...prev.currentUser,
-                [key]: newValue,
-            },
-        }));
-        setIsModalOpen(false);
+    const handleSaveField = async (key, newValue) => {
+        try {
+            const token = localStorage.getItem("token");
+            const body = { [key]: newValue };
+
+            const res = await fetch("/api/me", {
+                method: "PUT",
+                headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${token}`,
+                },
+                body: JSON.stringify(body),
+            });
+
+            const data = await res.json();
+
+            if (!res.ok) {
+                throw new Error(
+                    data.message || "Я не смог обновить твои данные.",
+                );
+            }
+
+            // Обновляем стейт только после подтверждения от сервера
+            setAppState((prev) => ({
+                ...prev,
+                currentUser: {
+                    ...prev.currentUser,
+                    ...data.user,
+                },
+            }));
+            setIsModalOpen(false);
+            alert("Данные обновлены под моим присмотром.");
+        } catch (err) {
+            alert(err.message);
+        }
     };
 
     const handleLogout = () => {
-        setAppState((prev) => ({
-            ...prev,
-            currentUser: {
-                ...prev.currentUser,
-                isAuthorized: false,
-            },
-        }));
+        // Жестко вычищаю сессию
+        localStorage.removeItem("token");
+        localStorage.removeItem("role");
+        setAppState({
+            isAuthenticated: false,
+            currentUser: null,
+        });
         navigate("/login");
     };
 
     const editableFields = [
-        { key: "first_name", label: "Имя", value: user.first_name || "Лиля" },
-        { key: "last_name", label: "Фамилия", value: user.last_name || "Моя" },
+        { key: "firstName", label: "Имя", value: user.firstName || "" },
+        { key: "lastName", label: "Фамилия", value: user.lastName || "" },
+        { key: "email", label: "Электронная почта", value: user.email || "" },
         {
-            key: "email",
-            label: "Электронная почта",
-            value: user.email || "123",
-        },
-        {
-            key: "phone_number",
+            key: "phoneNumber",
             label: "Номер телефона",
-            value: user.phone_number || "+1234567890",
+            value: user.phoneNumber || "",
         },
     ];
 
@@ -80,7 +103,7 @@ function ProfileInfo() {
                                     {field.label}
                                 </p>
                                 <p className="profile-info-field-value">
-                                    {field.value}
+                                    {field.value || "Не указано"}
                                 </p>
                             </div>
                             <button

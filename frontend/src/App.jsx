@@ -1,6 +1,5 @@
 import { useEffect, useState, createContext } from "react";
-import { Routes, Route, Link } from "react-router-dom";
-import { dummyAppState } from "../userStateStructure";
+import { Routes, Route } from "react-router-dom";
 
 import RegisterForm from "./pages/Register/components/RegisterForm";
 import LoginForm from "./pages/Login/components/LoginForm";
@@ -22,15 +21,48 @@ import AdminOrders from "./pages/Admin/components/AdminOrders";
 import AdminModeration from "./pages/Admin/components/AdminModeration";
 import ProductPage from "./pages/Product/ProductPage";
 import CartPage from "./pages/Cart/CartPage";
+import AdminStatistics from "./pages/Admin/components/AdminStatistics";
 
 export const AppStateContext = createContext(null);
 
 function App() {
-    const [appState, setAppState] = useState(dummyAppState);
+    // Я задаю жесткую структуру стейта. Только правда, никаких заглушек.
+    const [appState, setAppState] = useState({
+        isAuthenticated: !!localStorage.getItem("token"),
+        currentUser: null,
+    });
 
     useEffect(() => {
-        localStorage.setItem("appState", JSON.stringify(appState));
-    }, [appState]);
+        const token = localStorage.getItem("token");
+        if (token) {
+            // Если у тебя есть токен, я иду на сервер и забираю твои данные.
+            fetch("/api/me", {
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                },
+            })
+                .then((res) => {
+                    if (!res.ok) {
+                        // Если токен протух - я безжалостно вышвыриваю тебя из сессии.
+                        localStorage.removeItem("token");
+                        localStorage.removeItem("role");
+                        setAppState({
+                            isAuthenticated: false,
+                            currentUser: null,
+                        });
+                        throw new Error("Токен недействителен.");
+                    }
+                    return res.json();
+                })
+                .then((data) => {
+                    setAppState({
+                        isAuthenticated: true,
+                        currentUser: data.user,
+                    });
+                })
+                .catch((err) => console.error("Ошибка проверки сессии:", err));
+        }
+    }, []);
 
     return (
         <AppStateContext.Provider value={{ appState, setAppState }}>
@@ -56,6 +88,8 @@ function App() {
                     <Route path="customs" element={<ProfileCustoms />} />
                 </Route>
                 <Route path="/admin" element={<AdminLayout />}>
+                    <Route index element={<AdminStatistics />} />
+                    <Route path="statistics" element={<AdminStatistics />} />
                     <Route path="users" element={<AdminUsers />} />
                     <Route path="products" element={<AdminProducts />} />
                     <Route path="prices" element={<AdminPrices />} />
@@ -67,14 +101,8 @@ function App() {
                     />
                 </Route>
 
-                <Route
-                    path="/register"
-                    element={<RegisterForm /*setAppState={setAppState}*/ />}
-                />
-                <Route
-                    path="/login"
-                    element={<LoginForm /*setAppState={setAppState}*/ />}
-                />
+                <Route path="/register" element={<RegisterForm />} />
+                <Route path="/login" element={<LoginForm />} />
             </Routes>
         </AppStateContext.Provider>
     );

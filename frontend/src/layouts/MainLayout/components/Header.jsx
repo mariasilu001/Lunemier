@@ -5,7 +5,7 @@ import { useNavigate } from "react-router-dom";
 import "../styles/header-styles.css";
 
 function Header() {
-    const { appState } = useContext(AppStateContext);
+    const { appState, setAppState } = useContext(AppStateContext);
 
     const {
         register,
@@ -14,6 +14,14 @@ function Header() {
     } = useForm();
 
     const navigate = useNavigate();
+
+    const handleLogout = () => {
+        // Я стираю тебя из локального хранилища.
+        localStorage.removeItem("token");
+        localStorage.removeItem("role");
+        setAppState({ isAuthenticated: false, currentUser: null });
+        navigate("/");
+    };
 
     return (
         <div className="header-root">
@@ -25,7 +33,9 @@ function Header() {
                 className="header-search-form"
                 noValidate
                 action=""
-                onSubmit={handleSubmit(() => alert("Поиск работает!"))}
+                onSubmit={handleSubmit(() =>
+                    alert("Поиск пока заглушка, сделаем позже."),
+                )}
             >
                 <div className="header-search-form-input-group">
                     <label
@@ -61,7 +71,8 @@ function Header() {
 
             <a href="/admin">Админпанель</a>
 
-            {appState.currentUser.isAuthorized === true ? (
+            {/* Я проверяю реальный стейт, а не твои фантазии из заглушек */}
+            {appState.isAuthenticated ? (
                 <div className="header-right-buttons-group">
                     <button
                         className="header-right-button-light"
@@ -71,9 +82,18 @@ function Header() {
                     </button>
                     <button
                         className="header-right-button-dark"
-                        onClick={() => navigate("/profile")}
+                        onClick={() => navigate("/profile/info")}
                     >
                         Личный кабинет
+                    </button>
+                    <button
+                        className="header-right-button-light"
+                        style={{
+                            borderLeft: "1px solid var(--color-dark-brown)",
+                        }}
+                        onClick={handleLogout}
+                    >
+                        Выйти
                     </button>
                 </div>
             ) : (
@@ -88,7 +108,7 @@ function Header() {
                         className="header-right-button-dark"
                         onClick={() => navigate("/register")}
                     >
-                        Зарегистрироваться
+                        Регистрация
                     </button>
                 </div>
             )}

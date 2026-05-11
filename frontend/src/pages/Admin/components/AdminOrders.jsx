@@ -1,27 +1,57 @@
-import React, { useState, useContext } from "react";
-import { AppStateContext } from "../../../App";
+import React, { useState, useEffect } from "react";
 import AdminOrderModal from "./AdminOrderModal";
 import "../styles/admin-orders-styles.css";
 
 function AdminOrders() {
-    const { appState, setAppState } = useContext(AppStateContext);
+    const [orders, setOrders] = useState([]);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [selectedOrder, setSelectedOrder] = useState(null);
 
-    const orders = appState.orders || [];
+    useEffect(() => {
+        const token = localStorage.getItem("token");
+        fetch("/api/admin/orders", {
+            headers: { Authorization: `Bearer ${token}` },
+        })
+            .then((res) => res.json())
+            .then((data) => {
+                if (data.orders) setOrders(data.orders);
+            })
+            .catch((err) => console.error("Ошибка загрузки заказов:", err));
+    }, []);
 
     const handleOpenDetails = (order) => {
         setSelectedOrder(order);
         setIsModalOpen(true);
     };
 
-    const handleStatusChange = (orderId, newStatus) => {
-        setAppState(prev => ({
-            ...prev,
-            orders: prev.orders.map(o => 
-                o.order_id === orderId ? { ...o, status: newStatus } : o
-            )
-        }));
+    const handleStatusChange = async (orderId, newStatus) => {
+        try {
+            const token = localStorage.getItem("token");
+            const res = await fetch(`/api/admin/orders/${orderId}/status`, {
+                method: "PUT",
+                headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${token}`,
+                },
+                body: JSON.stringify({ status: newStatus }),
+            });
+
+            if (res.ok) {
+                // Если я разрешил статус на бэкенде, обновляю список
+                setOrders((prev) =>
+                    prev.map((o) =>
+                        o.order_id === orderId
+                            ? { ...o, status: newStatus }
+                            : o,
+                    ),
+                );
+            } else {
+                const err = await res.json();
+                alert(err.message || "Ошибка обновления статуса.");
+            }
+        } catch (error) {
+            console.error(error);
+        }
     };
 
     const getStatusBadge = (status) => {
@@ -40,7 +70,9 @@ function AdminOrders() {
             <div className="admin-orders-header-row">
                 <div>
                     <h2 className="admin-orders-header">Управление заказами</h2>
-                    <p className="admin-orders-subtitle">Контроль логистики и продаж ({orders.length} заказов)</p>
+                    <p className="admin-orders-subtitle">
+                        Контроль логистики и продаж ({orders.length} заказов)
+                    </p>
                 </div>
             </div>
 
@@ -59,14 +91,18 @@ function AdminOrders() {
                     <tbody>
                         {orders.map((order) => (
                             <tr key={order.order_id}>
-                                <td className="font-monospace">#{order.order_id}</td>
+                                <td className="font-monospace">
+                                    #{order.order_id}
+                                </td>
                                 <td className="font-bold">{order.username}</td>
                                 <td>{order.order_date}</td>
                                 <td>{getStatusBadge(order.status)}</td>
-                                <td className="font-bold">{order.total_amount} ₽</td>
+                                <td className="font-bold">
+                                    {order.total_amount} ₽
+                                </td>
                                 <td className="actions-cell">
-                                    <button 
-                                        className="admin-btn-text" 
+                                    <button
+                                        className="admin-btn-text"
                                         onClick={() => handleOpenDetails(order)}
                                     >
                                         Детали / Изменить
@@ -78,10 +114,11 @@ function AdminOrders() {
                 </table>
             </div>
 
-            <AdminOrderModal 
-                isOpen={isModalOpen} 
-                onClose={() => setIsModalOpen(false)} 
+            <AdminOrderModal
+                isOpen={isModalOpen}
+                onClose={() => setIsModalOpen(false)}
                 order={selectedOrder}
+                // Прокидываем функцию, чтобы модалка могла менять статус
                 onStatusChange={handleStatusChange}
             />
         </section>

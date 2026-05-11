@@ -1,20 +1,53 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect, useContext } from "react";
 import { Rnd } from "react-rnd";
 import SelectBaseColor from "./SelectBaseColor";
 import "../styles/customizator-redactor.css";
 import Header from "../../../layouts/MainLayout/components/Header";
 import { toPng } from "html-to-image";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { AppStateContext } from "../../../App";
 
 function CustomizatorRedactor() {
+    const { appState } = useContext(AppStateContext);
+    const navigate = useNavigate();
+    const [searchParams] = useSearchParams();
+    const baseId = searchParams.get("baseId");
+
+    const [baseProduct, setBaseProduct] = useState(null);
     const [baseColor, setBaseColor] = useState("#ffffff");
     const [side, setSide] = useState("front");
     const [images, setImages] = useState([]);
+    const [isSaving, setIsSaving] = useState(false);
 
     const exportRef = useRef(null);
+
+    // Я проверяю, выбрала ли ты основу. Если нет — пошла вон обратно в каталог.
+    useEffect(() => {
+        if (!baseId) {
+            alert("Ты не выбрала основу. Я возвращаю тебя назад.");
+            navigate("/customizator/select-base");
+            return;
+        }
+
+        fetch(`/api/products/${baseId}`)
+            .then((res) => res.json())
+            .then((data) => {
+                if (data.product) {
+                    setBaseProduct(data.product);
+                }
+            })
+            .catch((err) => console.error("Ошибка загрузки основы:", err));
+    }, [baseId, navigate]);
 
     const handleFileUpload = (event) => {
         const file = event.target.files[0];
         if (!file) return;
+
+        // Мой сервер задыхается от мусора. Больше 10 картинок я не пропущу.
+        if (images.length >= 10) {
+            alert("Я разрешаю не больше 10 изображений на один кастом.");
+            return;
+        }
 
         const url = URL.createObjectURL(file);
 
@@ -30,6 +63,7 @@ function CustomizatorRedactor() {
                 ...prev,
                 {
                     id: Date.now(),
+                    file, // Я сохраняю оригинальный файл для FormData
                     url,
                     x: 100,
                     y: 150,
@@ -58,16 +92,24 @@ function CustomizatorRedactor() {
     };
 
     const handleSave = async () => {
-        if (exportRef.current === null) {
+        if (!appState.isAuthenticated) {
+            alert("Авторизуйся. Я не сохраняю работы призраков.");
+            navigate("/login");
             return;
         }
 
+        if (!baseId) {
+            alert("Отсутствует ID основы.");
+            return;
+        }
+
+        if (exportRef.current === null) return;
+
+        setIsSaving(true);
         try {
-            console.log("Начинаем захват DOM-элемента...");
-
+            console.log("Захватываю твой дизайн...");
             const dataUrl = await toPng(exportRef.current, {
-                pixelRatio: 2, 
-
+                pixelRatio: 2,
                 filter: (node) => {
                     if (
                         node.tagName === "LINK" &&
@@ -80,21 +122,82 @@ function CustomizatorRedactor() {
                 },
             });
 
-            const link = document.createElement("a");
-            link.download = "lunemier-design-perfect.png";
-            link.href = dataUrl;
-            link.click();
+            // Превращаем dataURL скриншота в бинарный Blob
+            const resScreenshot = await fetch(dataUrl);
+            const blobScreenshot = await resScreenshot.blob();
 
-            console.log("Сохранение успешно завершено.");
+            // Формируем FormData в точности так, как ждет мой бэкенд
+            const formData = new FormData();
+            formData.append("baseProductId", baseId);
+            formData.append(
+                "name",
+                `Кастом: ${baseProduct?.name || "Уникальный дизайн"}`,
+            );
+            formData.append(
+                "description",
+                `Цвет основы: ${baseColor}. Моё творение.`,
+            );
+            formData.append("screenshot", blobScreenshot, "screenshot.png");
+
+            // Собираем детали и сами файлы принтов
+            const customImagesData = [];
+            images.forEach((img) => {
+                formData.append("customImages", img.file);
+                customImagesData.push({
+                    side: img.side,
+                    x: img.x,
+                    y: img.y,
+                    scale: img.scale,
+                    rotation: img.rotation,
+                });
+            });
+
+            // Строго в формате JSON, как я и задумал на сервере
+            formData.append(
+                "customImagesData",
+                JSON.stringify(customImagesData),
+            );
+
+            const token = localStorage.getItem("token");
+            const response = await fetch("/api/me/customs", {
+                method: "POST",
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                },
+                body: formData,
+            });
+
+            const result = await response.json();
+
+            if (response.ok) {
+                alert(
+                    "Дизайн сохранен. Ты хорошо поработала. Теперь он в твоем профиле.",
+                );
+                navigate("/profile/customs");
+            } else {
+                throw new Error(result.message || "Ошибка при сохранении.");
+            }
         } catch (err) {
-            console.error("Ошибка при создании скриншота:", err);
+            console.error("Ошибка при создании кастома:", err);
+            alert(err.message || "Я не смог сохранить твой дизайн.");
+        } finally {
+            setIsSaving(false);
         }
     };
+
     const visibleImages = images.filter((img) => img.side === side);
 
     const renderClothCanvas = (renderSide, isExport = false) => {
-        const clothImg =
+        // Подтягиваем фото основы с бэкенда, если они есть. Иначе берем заглушки.
+        let clothImg =
             renderSide === "front" ? "/cloth-front.png" : "/cloth-back.png";
+        if (baseProduct) {
+            if (renderSide === "front" && baseProduct.frontPhotoUrl)
+                clothImg = `/${baseProduct.frontPhotoUrl.replace(/\\/g, "/")}`;
+            if (renderSide === "back" && baseProduct.backPhotoUrl)
+                clothImg = `/${baseProduct.backPhotoUrl.replace(/\\/g, "/")}`;
+        }
+
         const sideImages = images.filter((img) => img.side === renderSide);
 
         return (
@@ -104,7 +207,6 @@ function CustomizatorRedactor() {
                     className="canvas-cloth-base"
                     alt="cloth-base"
                 />
-
                 <div
                     className="canvas-color-tint"
                     style={{
@@ -119,7 +221,6 @@ function CustomizatorRedactor() {
                         WebkitMaskRepeat: "no-repeat",
                     }}
                 ></div>
-
                 <div
                     className="canvas-mask-layer"
                     style={{
@@ -210,7 +311,6 @@ function CustomizatorRedactor() {
                     <div className="redactor-tabs">
                         <button className="redactor-tab active">Файлы</button>
                     </div>
-
                     <div className="redactor-actions">
                         <label className="redactor-action-btn">
                             + Изображение
@@ -222,7 +322,6 @@ function CustomizatorRedactor() {
                             />
                         </label>
                     </div>
-
                     <div className="redactor-files-list">
                         {visibleImages.map((img) => (
                             <div key={img.id} className="redactor-file-item">
@@ -235,7 +334,6 @@ function CustomizatorRedactor() {
                                     <span className="file-item-name">
                                         Изображение
                                     </span>
-
                                     <div className="file-item-sliders">
                                         <label>
                                             <span>Угол: {img.rotation}°</span>
@@ -283,21 +381,8 @@ function CustomizatorRedactor() {
                                 </button>
                             </div>
                         ))}
-                        {visibleImages.length === 0 && (
-                            <p
-                                style={{
-                                    textAlign: "center",
-                                    fontSize: "12px",
-                                    color: "#888",
-                                    marginTop: "20px",
-                                }}
-                            >
-                                Нет загруженных файлов для этой стороны
-                            </p>
-                        )}
                     </div>
                 </aside>
-
                 <main className="redactor-center-canvas">
                     <div className="redactor-side-switch">
                         <button
@@ -313,9 +398,9 @@ function CustomizatorRedactor() {
                             Сзади
                         </button>
                     </div>
-
                     {renderClothCanvas(side, false)}
 
+                    {/* Скрытый холст для правильного захвата скриншота сразу двух сторон */}
                     <div
                         style={{
                             position: "absolute",
@@ -324,7 +409,7 @@ function CustomizatorRedactor() {
                         }}
                     >
                         <div
-                            ref={exportRef} 
+                            ref={exportRef}
                             style={{
                                 width: "900px",
                                 height: "600px",
@@ -361,7 +446,6 @@ function CustomizatorRedactor() {
                             >
                                 Вид сзади
                             </p>
-
                             <div style={{ transform: "scale(0.9)" }}>
                                 {renderClothCanvas("front", true)}
                             </div>
@@ -371,17 +455,24 @@ function CustomizatorRedactor() {
                         </div>
                     </div>
                 </main>
-
                 <aside className="redactor-right-panel">
-                    <SelectBaseColor
-                        color={baseColor}
-                        setColor={setBaseColor}
-                    />
+                    {baseProduct ? (
+                        <SelectBaseColor
+                            color={baseColor}
+                            setColor={setBaseColor}
+                            product={baseProduct}
+                        />
+                    ) : (
+                        <p style={{ color: "var(--color-dark-brown)" }}>
+                            Загружаю основу. Жди.
+                        </p>
+                    )}
                     <button
                         className="redactor-save-button"
                         onClick={handleSave}
+                        disabled={isSaving}
                     >
-                        Сохранить
+                        {isSaving ? "Сохраняю..." : "Сохранить"}
                     </button>
                 </aside>
             </div>

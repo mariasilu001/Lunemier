@@ -1,26 +1,33 @@
-import React, { useState, useContext } from "react";
-import { AppStateContext } from "../../../App";
+import React, { useState, useEffect } from "react";
 import AdminPriceModal from "./AdminPriceModal";
 import "../styles/admin-prices-styles.css";
 
 function AdminPrices() {
-    const { appState, setAppState } = useContext(AppStateContext);
-    
+    const [products, setProducts] = useState([]);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [selectedProduct, setSelectedProduct] = useState(null);
 
-    const activeProducts = (appState.products || []).filter(p => !p.deleted_at);
-    const allPrices = appState.prices || [];
-
-    const getActivePrice = (productId) => {
-        const priceObj = allPrices.find(p => p.product_id === productId && p.is_active);
-        return priceObj ? priceObj.price : "Не задана";
+    const fetchPrices = () => {
+        const token = localStorage.getItem("token");
+        fetch("/api/admin/prices", {
+            headers: { Authorization: `Bearer ${token}` },
+        })
+            .then((res) => res.json())
+            .then((data) => {
+                if (data.products) setProducts(data.products);
+            })
+            .catch((err) => console.error("Ошибка загрузки цен:", err));
     };
 
-    const getProductHistory = (productId) => {
-        return allPrices
-            .filter(p => p.product_id === productId)
-            .sort((a, b) => b.price_id - a.price_id);
+    useEffect(() => {
+        fetchPrices();
+    }, []);
+
+    const getActivePrice = (product) => {
+        if (product.prices && product.prices.length > 0) {
+            return product.prices[0].price; // Бэкенд отдает только активную
+        }
+        return "Не задана";
     };
 
     const handleOpenDetails = (product) => {
@@ -28,27 +35,14 @@ function AdminPrices() {
         setIsModalOpen(true);
     };
 
-    const handleAddPrice = (productId, newPriceValue) => {
-        setAppState(prev => {
-            const updatedPrices = prev.prices.map(p => 
-                p.product_id === productId && p.is_active 
-                    ? { ...p, is_active: false } 
-                    : p
-            );
+    const handleModalClose = (wasUpdated) => {
+        setIsModalOpen(false);
+        if (wasUpdated) fetchPrices(); // Обновляем список, если цена изменилась
+    };
 
-            const newPriceRecord = {
-                price_id: Date.now(),
-                product_id: productId,
-                price: newPriceValue,
-                created_at: new Date().toLocaleDateString("ru-RU"),
-                is_active: true
-            };
-
-            return {
-                ...prev,
-                prices: [newPriceRecord, ...updatedPrices]
-            };
-        });
+    const formatDate = (dateStr) => {
+        if (!dateStr) return "";
+        return new Date(dateStr).toLocaleDateString("ru-RU");
     };
 
     return (
@@ -56,7 +50,9 @@ function AdminPrices() {
             <div className="admin-prices-header-row">
                 <div>
                     <h2 className="admin-prices-header">Управление ценами</h2>
-                    <p className="admin-prices-subtitle">Финансовый контроль каталога</p>
+                    <p className="admin-prices-subtitle">
+                        Финансовый контроль каталога
+                    </p>
                 </div>
             </div>
 
@@ -72,20 +68,26 @@ function AdminPrices() {
                         </tr>
                     </thead>
                     <tbody>
-                        {activeProducts.map((product) => (
-                            <tr key={product.product_id}>
-                                <td className="font-monospace">#{product.product_id}</td>
+                        {products.map((product) => (
+                            <tr key={product.productId}>
+                                <td className="font-monospace">
+                                    #{product.productId}
+                                </td>
                                 <td className="font-bold">{product.name}</td>
-                                <td>{product.created_at}</td>
+                                <td>{formatDate(product.createdAt)}</td>
                                 <td className="price-cell">
-                                    <span className="current-price-value">{getActivePrice(product.product_id)} ₽</span>
+                                    <span className="current-price-value">
+                                        {getActivePrice(product)} ₽
+                                    </span>
                                 </td>
                                 <td>
-                                    <button 
-                                        className="admin-btn-details" 
-                                        onClick={() => handleOpenDetails(product)}
+                                    <button
+                                        className="admin-btn-details"
+                                        onClick={() =>
+                                            handleOpenDetails(product)
+                                        }
                                     >
-                                        Детали
+                                        История / Изменить
                                     </button>
                                 </td>
                             </tr>
@@ -94,13 +96,13 @@ function AdminPrices() {
                 </table>
             </div>
 
-            <AdminPriceModal 
-                isOpen={isModalOpen} 
-                onClose={() => setIsModalOpen(false)} 
-                product={selectedProduct}
-                history={selectedProduct ? getProductHistory(selectedProduct.product_id) : []}
-                onAddPrice={handleAddPrice}
-            />
+            {isModalOpen && (
+                <AdminPriceModal
+                    isOpen={isModalOpen}
+                    onClose={handleModalClose}
+                    product={selectedProduct}
+                />
+            )}
         </section>
     );
 }

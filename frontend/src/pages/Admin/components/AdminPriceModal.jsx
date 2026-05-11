@@ -1,70 +1,191 @@
-import React, { useState } from "react";
-import "../styles/admin-prices-styles.css";
+import React, { useState, useEffect } from "react";
+import ReactDOM from "react-dom";
 
-function AdminPriceModal({ isOpen, onClose, product, history, onAddPrice }) {
+function AdminPriceModal({ isOpen, onClose, product }) {
+    const [history, setHistory] = useState([]);
     const [newPrice, setNewPrice] = useState("");
+    const [isSaving, setIsSaving] = useState(false);
+
+    useEffect(() => {
+        if (!product) return;
+
+        // Как только модалка открывается, я заставляю ее стянуть историю цен этого товара
+        const token = localStorage.getItem("token");
+        fetch(`/api/admin/prices/product/${product.productId}`, {
+            headers: { Authorization: `Bearer ${token}` },
+        })
+            .then((res) => res.json())
+            .then((data) => {
+                if (data.history) setHistory(data.history);
+            })
+            .catch(console.error);
+    }, [product]);
 
     if (!isOpen || !product) return null;
 
-    const handleSubmit = (e) => {
-        e.preventDefault();
-        if (!newPrice || isNaN(newPrice) || Number(newPrice) <= 0) return;
-        
-        onAddPrice(product.product_id, Number(newPrice));
-        setNewPrice("");
+    const handleSave = async () => {
+        if (!newPrice || isNaN(newPrice) || Number(newPrice) <= 0) {
+            alert("Цена должна быть числом больше нуля. Не делай ошибок.");
+            return;
+        }
+
+        setIsSaving(true);
+        try {
+            const token = localStorage.getItem("token");
+            const res = await fetch("/api/admin/prices", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${token}`,
+                },
+                body: JSON.stringify({
+                    product_id: product.productId,
+                    price: newPrice,
+                }),
+            });
+
+            if (res.ok) {
+                alert("Цена жестко зафиксирована.");
+                onClose(true); // Сообщаем родителю об обновлении
+            } else {
+                const err = await res.json();
+                alert(err.message || "Ошибка обновления цены.");
+            }
+        } catch (error) {
+            console.error(error);
+        } finally {
+            setIsSaving(false);
+        }
     };
 
-    return (
-        <div className="admin-price-modal-overlay" onClick={onClose}>
-            <div className="admin-price-modal-box" onClick={e => e.stopPropagation()}>
-                <div className="admin-price-modal-header">
-                    <div>
-                        <h2>Управление ценой</h2>
-                        <p className="admin-price-modal-subtitle">{product.name} (ID: {product.product_id})</p>
-                    </div>
-                    <button className="admin-price-modal-close" onClick={onClose}>✕</button>
+    const formatDate = (dateStr) => {
+        if (!dateStr) return "";
+        return new Date(dateStr).toLocaleString("ru-RU");
+    };
+
+    // Очередной портал. Ничто не перекроет мою волю.
+    return ReactDOM.createPortal(
+        <div
+            className="admin-product-modal-overlay"
+            onClick={() => onClose(false)}
+            style={{
+                position: "fixed",
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                backgroundColor: "rgba(0,0,0,0.5)",
+                display: "flex",
+                justifyContent: "center",
+                alignItems: "center",
+                zIndex: 9999,
+            }}
+        >
+            <div
+                className="admin-product-modal-box"
+                onClick={(e) => e.stopPropagation()}
+                style={{
+                    backgroundColor: "#fff",
+                    padding: "20px",
+                    borderRadius: "8px",
+                    width: "500px",
+                    maxHeight: "80vh",
+                    overflowY: "auto",
+                }}
+            >
+                <div
+                    style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        marginBottom: "20px",
+                    }}
+                >
+                    <h3 style={{ color: "var(--color-dark-brown)", margin: 0 }}>
+                        Товар: {product.name}
+                    </h3>
+                    <button
+                        onClick={() => onClose(false)}
+                        style={{
+                            background: "none",
+                            border: "none",
+                            fontSize: "20px",
+                            cursor: "pointer",
+                        }}
+                    >
+                        ✕
+                    </button>
                 </div>
 
-                <div className="admin-price-modal-body">
-                    <form className="admin-price-form" onSubmit={handleSubmit}>
-                        <label>Назначить новую цену (₽)</label>
-                        <div className="admin-price-input-row">
-                            <input 
-                                type="number" 
-                                value={newPrice} 
-                                onChange={(e) => setNewPrice(e.target.value)} 
-                                placeholder="Например: 2500"
-                                required 
-                                min="1"
-                            />
-                            <button type="submit" className="admin-btn-save-price">Обновить</button>
-                        </div>
-                        <p className="admin-price-hint">При сохранении старая цена будет деактивирована, но останется в истории.</p>
-                    </form>
-
-                    <div className="admin-price-separator"></div>
-
-                    <h3 className="admin-price-history-title">История изменений</h3>
-                    <div className="admin-price-history-list">
-                        {history && history.length > 0 ? (
-                            history.map(item => (
-                                <div key={item.price_id} className={`admin-price-history-item ${item.is_active ? 'active' : ''}`}>
-                                    <div className="price-history-left">
-                                        <span className="price-history-value">{item.price} ₽</span>
-                                        {item.is_active && <span className="price-history-badge">Текущая</span>}
-                                    </div>
-                                    <div className="price-history-right">
-                                        <span className="price-history-date">{item.created_at}</span>
-                                    </div>
-                                </div>
-                            ))
-                        ) : (
-                            <p className="admin-price-history-empty">История цен пуста. Товар отдается бесплатно?</p>
-                        )}
+                <div style={{ marginBottom: "20px" }}>
+                    <p style={{ fontWeight: "bold", marginBottom: "10px" }}>
+                        Установить новую цену
+                    </p>
+                    <div style={{ display: "flex", gap: "10px" }}>
+                        <input
+                            type="number"
+                            placeholder="Новая цена..."
+                            value={newPrice}
+                            onChange={(e) => setNewPrice(e.target.value)}
+                            style={{ flex: 1, padding: "8px" }}
+                        />
+                        <button
+                            onClick={handleSave}
+                            disabled={isSaving}
+                            style={{
+                                padding: "8px 16px",
+                                backgroundColor: "var(--color-dark-brown)",
+                                color: "var(--color-cream)",
+                                cursor: "pointer",
+                                border: "none",
+                                borderRadius: "4px",
+                            }}
+                        >
+                            {isSaving ? "Установка..." : "Применить"}
+                        </button>
                     </div>
                 </div>
+
+                <p style={{ fontWeight: "bold", marginBottom: "10px" }}>
+                    История цен
+                </p>
+                {history.length === 0 ? (
+                    <p style={{ color: "#777" }}>Истории пока нет.</p>
+                ) : (
+                    <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
+                        {history.map((item) => (
+                            <li
+                                key={item.priceId}
+                                style={{
+                                    padding: "10px",
+                                    borderBottom: "1px solid #eee",
+                                    display: "flex",
+                                    justifyContent: "space-between",
+                                    backgroundColor: item.isActive
+                                        ? "rgba(40, 167, 69, 0.1)"
+                                        : "transparent",
+                                }}
+                            >
+                                <span>
+                                    {item.price} ₽{" "}
+                                    {item.isActive && (
+                                        <strong style={{ color: "green" }}>
+                                            (Текущая)
+                                        </strong>
+                                    )}
+                                </span>
+                                <span
+                                    style={{ color: "#777", fontSize: "14px" }}
+                                >
+                                    {formatDate(item.createdAt)}
+                                </span>
+                            </li>
+                        ))}
+                    </ul>
+                )}
             </div>
-        </div>
+        </div>,
+        document.body,
     );
 }
 

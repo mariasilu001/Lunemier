@@ -4,6 +4,7 @@ import "../styles/admin-nav-menu-styles.css";
 
 function AdminNavMenu() {
     const navLinks = [
+        { path: "/admin/statistics", label: "Статистика" },
         { path: "/admin/users", label: "Управление пользователями" },
         { path: "/admin/products", label: "Каталог и товары" },
         { path: "/admin/prices", label: "Управление ценами" },
