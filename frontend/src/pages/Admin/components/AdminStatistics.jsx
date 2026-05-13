@@ -132,7 +132,7 @@ function AdminStatistics() {
         return (
             <section className="admin-statistics-root loading">
                 <h2 style={{ color: "var(--color-dark-brown)" }}>
-                    Я анализирую данные. Жди.
+                    Загрузка
                 </h2>
             </section>
         );
@@ -146,7 +146,7 @@ function AdminStatistics() {
                         Аналитика и статистика
                     </h2>
                     <p className="admin-statistics-subtitle">
-                        Сводка данных твоего бизнеса за 30 дней
+                        Сводка данных бизнеса за 30 дней
                     </p>
                 </div>
             </div>

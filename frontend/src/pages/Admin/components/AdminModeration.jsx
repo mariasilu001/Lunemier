@@ -48,7 +48,7 @@ function AdminModeration() {
                     prev.filter((r) => r.review_id !== reviewId),
                 );
             } else {
-                alert("Я не смог удалить этот отзыв.");
+                alert("Ошибка удаления");
             }
         } catch (error) {
             console.error(error);

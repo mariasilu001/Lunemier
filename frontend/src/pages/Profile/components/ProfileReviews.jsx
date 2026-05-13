@@ -22,7 +22,7 @@ function ProfileReviews() {
     }, [appState.isAuthenticated]);
 
     const handleDelete = async (reviewId) => {
-        if (!window.confirm("Ты уверена, что хочешь стереть этот отзыв?"))
+        if (!window.confirm("Ты хочешь стереть этот отзыв?"))
             return;
 
         try {
@@ -36,7 +36,6 @@ function ProfileReviews() {
                 setReviews((prev) =>
                     prev.filter((r) => r.reviewId !== reviewId),
                 );
-                alert("Удалено.");
             } else {
                 const err = await res.json();
                 alert(err.message || "Ошибка удаления.");
@@ -88,7 +87,7 @@ function ProfileReviews() {
             <div className="profile-reviews-list">
                 {reviews.length === 0 && (
                     <p style={{ color: "var(--color-dark-brown)" }}>
-                        Ты еще ничего не комментировала.
+                        Пусто
                     </p>
                 )}
                 {reviews.map((review) => (

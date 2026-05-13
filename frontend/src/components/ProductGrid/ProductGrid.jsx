@@ -49,7 +49,7 @@ function ProductGrid({ isBaseMode = false }) {
                         gridColumn: "1 / -1",
                     }}
                 >
-                    Я не нашел товаров по твоему запросу.
+                    Пока нет товаров этой категории
                 </p>
             )}
         </section>

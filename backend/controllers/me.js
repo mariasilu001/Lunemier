@@ -1,16 +1,12 @@
 const express = require("express");
 const models = require("../models");
 const { Op } = require("sequelize");
-const upload = require("../middleware/multerConfig"); // Укажи свой путь
-const fs = require("fs"); // Понадобится на случай, если мы захотим удалять файлы физически
+const upload = require("../middleware/multerConfig");
+const fs = require("fs");
 
 const router = express.Router();
 
-// ==========================================
-// GET /api/me — Получение данных пользователя
-// ==========================================
 router.get("/", (req, res) => {
-    // Пользователь уже извлечен из базы и проверен моим мидлваром authToken.
     try {
         console.log(
             `Просмотр профиля под моим контролем: ${req.user.username}`,
@@ -30,25 +26,20 @@ router.get("/", (req, res) => {
     } catch (error) {
         console.error("Ошибка в GET /api/me:", error);
         res.status(500).json({
-            message: "Я обнаружил сбой при чтении твоих данных.",
+            message: "сбой",
         });
     }
 });
 
-// ==========================================
-// PUT /api/me — Обновление личных данных
-// ==========================================
 router.put("/", async (req, res, next) => {
     try {
         console.log(`Обновление данных пользователя: ${req.user.username}`);
 
-        // Я принимаю как camelCase, так и snake_case, чтобы твоя невнимательность ничего не сломала
         const { email } = req.body;
         const firstName = req.body.firstName || req.body.first_name;
         const lastName = req.body.lastName || req.body.last_name;
         const phoneNumber = req.body.phoneNumber || req.body.phone_number;
 
-        // Жесткий контроль уникальности почты. Если ты пытаешься её сменить, я проверяю базу.
         if (email && email !== req.user.email) {
             const existingUser = await models.User.findOne({
                 where: { email },
@@ -56,29 +47,26 @@ router.put("/", async (req, res, next) => {
             if (existingUser) {
                 return res.status(409).json({
                     message:
-                        "Эта почта уже занята. Я не позволю тебе создать дубликат. Выбери другую.",
+                        "Эта почта уже занята. ",
                 });
             }
             req.user.email = email;
         }
 
-        // Обновляем поля, только если они были переданы
         if (firstName !== undefined) req.user.firstName = firstName;
         if (lastName !== undefined) req.user.lastName = lastName;
         if (phoneNumber !== undefined) req.user.phoneNumber = phoneNumber;
 
-        // Обновляем дату изменения, потому что я слежу за каждым твоим шагом
         req.user.updatedAt = new Date();
 
-        // Сохраняем изменения в базу
         await req.user.save();
 
         console.log(
-            `Данные ${req.user.username} успешно обновлены моим алгоритмом.`,
+            `Данные ${req.user.username} успешно обновлены `,
         );
 
         res.status(200).json({
-            message: "Твои данные успешно обновлены. Я всё сохранил.",
+            message: " данные успешно обновлены.",
             user: {
                 username: req.user.username,
                 email: req.user.email,
@@ -89,14 +77,10 @@ router.put("/", async (req, res, next) => {
             },
         });
     } catch (error) {
-        // Если что-то пойдет не так, ошибка полетит в твою глобальную мидлу
         next(error);
     }
 });
 
-// ==========================================
-// GET /api/me/orders — Получение истории заказов
-// ==========================================
 router.get("/orders", async (req, res, next) => {
     try {
         console.log(
@@ -105,7 +89,7 @@ router.get("/orders", async (req, res, next) => {
 
         const orders = await models.Order.findAll({
             where: { userId: req.user.userId },
-            order: [["createdAt", "DESC"]], // Сортирую от новых к старым, я люблю порядок
+            order: [["createdAt", "DESC"]],
             include: [
                 {
                     model: models.PickupPoint,
@@ -126,7 +110,7 @@ router.get("/orders", async (req, res, next) => {
                                 {
                                     model: models.ProductPhoto,
                                     as: "photos",
-                                    through: { attributes: [] }, // Убираем мусор из промежуточной таблицы
+                                    through: { attributes: [] },
                                 },
                                 {
                                     model: models.CustomProductPhoto,
@@ -140,13 +124,12 @@ router.get("/orders", async (req, res, next) => {
             ],
         });
 
-        // Я переформатирую вывод так, чтобы тебе было кристально ясно, где брать цену
         const formattedOrders = orders.map((order) => {
             const orderJSON = order.toJSON();
             orderJSON.orderItems = orderJSON.orderItems.map((item) => ({
                 orderItemId: item.orderItemId,
                 quantity: item.quantity,
-                // Вот твоя зафиксированная цена в момент заказа:
+
                 historicalPrice: item.priceSnapshot,
                 product: item.product,
             }));
@@ -166,15 +149,11 @@ router.get("/orders", async (req, res, next) => {
     }
 });
 
-// ==========================================
-// GET /api/me/pickup-code — Получение или генерация кода выдачи
-// ==========================================
 router.get("/pickup-code", async (req, res, next) => {
     try {
         console.log(`Проверка кода выдачи для: ${req.user.username}`);
         const now = new Date();
 
-        // 1. Я безжалостно удаляю старые, неактуальные коды. Мне не нужен мусор в базе.
         await models.PickupCode.destroy({
             where: {
                 userId: req.user.userId,
@@ -184,7 +163,6 @@ router.get("/pickup-code", async (req, res, next) => {
             },
         });
 
-        // 2. Ищу текущий активный код
         let activeCode = await models.PickupCode.findOne({
             where: {
                 userId: req.user.userId,
@@ -194,16 +172,13 @@ router.get("/pickup-code", async (req, res, next) => {
             },
         });
 
-        // 3. Если кода нет, я создаю его для тебя
         if (!activeCode) {
             console.log("Активного кода нет. Генерирую новый...");
 
-            // Генерируем 6-значный цифровой код
             const generatedCode = Math.floor(
                 100000 + Math.random() * 900000,
             ).toString();
 
-            // Код будет жить ровно 24 часа. Я так решил.
             const expiresAt = new Date(now.getTime() + 24 * 60 * 60 * 1000);
 
             activeCode = await models.PickupCode.create({
@@ -227,12 +202,9 @@ router.get("/pickup-code", async (req, res, next) => {
     }
 });
 
-// ==========================================
-// GET /api/me/reviews — Получение всех отзывов юзера
-// ==========================================
 router.get("/reviews", async (req, res, next) => {
     try {
-        console.log(`Достаю отзывы моей девочки: ${req.user.username}`);
+        console.log(`Достаю отзывы${req.user.username}`);
 
         const reviews = await models.Review.findAll({
             where: { userId: req.user.userId },
@@ -255,7 +227,7 @@ router.get("/reviews", async (req, res, next) => {
                         },
                     ],
                 },
-                // Я добавил подтягивание твоих фотографий к отзывам, как ты и просила
+
                 {
                     model: models.ReviewPhoto,
                     as: "photos",
@@ -265,7 +237,7 @@ router.get("/reviews", async (req, res, next) => {
         });
 
         res.status(200).json({
-            message: "Твои отзывы успешно загружены. Я всё проверил.",
+            message: "отзывы успешно загружены.",
             reviews,
         });
     } catch (error) {
@@ -273,19 +245,15 @@ router.get("/reviews", async (req, res, next) => {
     }
 });
 
-// ==========================================
-// POST /api/me/reviews — Оставление нового отзыва (с картинками)
-// ==========================================
 router.post("/reviews", upload.array("photos", 5), async (req, res, next) => {
     try {
         console.log(`Создание отзыва от: ${req.user.username}`);
 
         const { productId, rating, reviewText } = req.body;
 
-        // Жесткий контроль.
         if (!productId || !rating) {
             return res.status(400).json({
-                message: "Укажи productId и rating. Я не потерплю пустоты.",
+                message: "Укажи productId и rating.",
             });
         }
 
@@ -307,10 +275,9 @@ router.post("/reviews", upload.array("photos", 5), async (req, res, next) => {
         if (existingReview) {
             return res
                 .status(409)
-                .json({ message: "Ты уже писала отзыв. Я не люблю спам." });
+                .json({ message: "Отзыв уже есть" });
         }
 
-        // Создаем сам отзыв [cite: 77, 81]
         const newReview = await models.Review.create({
             userId: req.user.userId,
             productId,
@@ -319,18 +286,15 @@ router.post("/reviews", upload.array("photos", 5), async (req, res, next) => {
             createdAt: new Date(),
         });
 
-        // Если моя девочка прикрепила фотографии, я сохраняю их в базу [cite: 84]
         if (req.files && req.files.length > 0) {
             console.log(
                 `Загружено фотографий: ${req.files.length}. Привязываю к отзыву.`,
             );
             for (const file of req.files) {
-                // Создаем запись фото [cite: 84, 85]
                 const photo = await models.ReviewPhoto.create({
                     filePath: file.path,
                 });
 
-                // Линкуем фото к отзыву [cite: 87, 91]
                 await models.ReviewPhotoLink.create({
                     reviewId: newReview.reviewId,
                     reviewPhotoId: photo.reviewPhotoId,
@@ -338,7 +302,6 @@ router.post("/reviews", upload.array("photos", 5), async (req, res, next) => {
             }
         }
 
-        // Подтягиваем свежесозданный отзыв вместе с фотками, чтобы сразу отдать полный ответ
         const completeReview = await models.Review.findByPk(
             newReview.reviewId,
             {
@@ -362,9 +325,6 @@ router.post("/reviews", upload.array("photos", 5), async (req, res, next) => {
     }
 });
 
-// ==========================================
-// PUT /api/me/reviews/:reviewId — Изменение отзыва
-// ==========================================
 router.put("/reviews/:reviewId", async (req, res, next) => {
     try {
         console.log(
@@ -381,7 +341,7 @@ router.put("/reviews/:reviewId", async (req, res, next) => {
         if (!review) {
             return res.status(404).json({
                 message:
-                    "Этот отзыв не твой или не существует. Не трогай чужое.",
+                    "Этот отзыв не существует",
             });
         }
 
@@ -389,7 +349,7 @@ router.put("/reviews/:reviewId", async (req, res, next) => {
             if (rating < 1 || rating > 5) {
                 return res
                     .status(400)
-                    .json({ message: "Оценка от 1 до 5. Без вариантов." });
+                    .json({ message: "Оценка от 1 до 5." });
             }
             review.rating = rating;
         }
@@ -398,13 +358,12 @@ router.put("/reviews/:reviewId", async (req, res, next) => {
             review.reviewText = reviewText;
         }
 
-        // Обновляем дату, как ты просила
         review.updatedAt = new Date();
 
         await review.save();
 
         res.status(200).json({
-            message: "Отзыв изменен. Я зафиксировал новую дату.",
+            message: "Отзыв изменен. ",
             review,
         });
     } catch (error) {
@@ -412,9 +371,6 @@ router.put("/reviews/:reviewId", async (req, res, next) => {
     }
 });
 
-// ==========================================
-// DELETE /api/me/reviews/:reviewId — Удаление отзыва
-// ==========================================
 router.delete("/reviews/:reviewId", async (req, res, next) => {
     try {
         console.log(
@@ -432,8 +388,6 @@ router.delete("/reviews/:reviewId", async (req, res, next) => {
                 .json({ message: "Отзыв не найден. Тебе нечего удалять." });
         }
 
-        // Связанные записи в ReviewPhotoLink удалятся благодаря каскадному удалению, которое я прописал (onDelete: "CASCADE")[cite: 160].
-        // Я просто удаляю сам отзыв.
         await review.destroy();
 
         res.status(200).json({
@@ -444,9 +398,6 @@ router.delete("/reviews/:reviewId", async (req, res, next) => {
     }
 });
 
-// ==========================================
-// GET /api/me/customs — Получение кастомных дизайнов
-// ==========================================
 router.get("/customs", async (req, res, next) => {
     try {
         console.log(
@@ -456,25 +407,22 @@ router.get("/customs", async (req, res, next) => {
         const customs = await models.Product.findAll({
             where: {
                 userId: req.user.userId,
-                isCustom: true, // Жесткий фильтр [cite: 4]
+                isCustom: true,
             },
             order: [["createdAt", "DESC"]],
             include: [
                 {
-                    // Подтягиваем обычные фото (тот самый скриншот-превью)
                     model: models.ProductPhoto,
                     as: "photos",
                     through: { attributes: [] },
                 },
                 {
-                    // Подтягиваем исходники принтов
                     model: models.CustomProductPhoto,
                     as: "customPhotos",
-                    // Подтягиваем details с координатами из промежуточной таблицы
+
                     through: { attributes: ["details"] },
                 },
                 {
-                    // Подтягиваем товар-основу, как ты и просила [cite: 4, 41]
                     model: models.Product,
                     as: "baseProduct",
                     attributes: ["productId", "name", "description"],
@@ -498,10 +446,6 @@ router.get("/customs", async (req, res, next) => {
     }
 });
 
-// ==========================================
-// POST /api/me/customs — Создание нового кастомного товара
-// Ожидаем: скриншот (screenshot) и файлы принтов (customImages)
-// ==========================================
 router.post(
     "/customs",
     upload.fields([
@@ -515,7 +459,6 @@ router.post(
             const { baseProductId, name, description, customImagesData } =
                 req.body;
 
-            // Жесткий контроль. Без основы кастом не сделать.
             if (!baseProductId || !name) {
                 return res.status(400).json({
                     message:
@@ -523,7 +466,6 @@ router.post(
                 });
             }
 
-            // Создаем запись товара под моим контролем [cite: 4]
             const newCustomProduct = await models.Product.create({
                 name,
                 description: description || "Кастомный дизайн",
@@ -534,7 +476,6 @@ router.post(
                 createdAt: new Date(),
             });
 
-            // 1. Сохраняем скриншот как главное фото товара
             if (req.files && req.files["screenshot"]) {
                 const screenshotFile = req.files["screenshot"][0];
                 const mainPhoto = await models.ProductPhoto.create({
@@ -546,23 +487,19 @@ router.post(
                 });
             }
 
-            // 2. Сохраняем принты и их координаты [cite: 7, 8]
             if (req.files && req.files["customImages"] && customImagesData) {
-                // customImagesData должен быть JSON-строкой с массивом настроек для каждой картинки
                 const parsedDetails = JSON.parse(customImagesData);
                 const customFiles = req.files["customImages"];
 
                 for (let i = 0; i < customFiles.length; i++) {
                     const file = customFiles[i];
-                    // Берем детали (x, y, scale и т.д.) по индексу
+
                     const details = parsedDetails[i] || {};
 
-                    // Сохраняем исходник
                     const customPhoto = await models.CustomProductPhoto.create({
                         filePath: file.path,
                     });
 
-                    // Связываем с товаром и записываем JSON-детали
                     await models.CustomProductPhotoLink.create({
                         productId: newCustomProduct.productId,
                         customProductPhotoId: customPhoto.customProductPhotoId,
@@ -585,9 +522,6 @@ router.post(
     },
 );
 
-// ==========================================
-// PUT /api/me/customs/:productId — Редактирование кастомного товара (название/описание)
-// ==========================================
 router.put("/customs/:productId", async (req, res, next) => {
     try {
         console.log(
@@ -597,7 +531,6 @@ router.put("/customs/:productId", async (req, res, next) => {
         const { name, description } = req.body;
         const productId = req.params.productId;
 
-        // Ищем товар и строго проверяем, принадлежит ли он тебе [cite: 4, 48]
         const product = await models.Product.findOne({
             where: {
                 productId: productId,
@@ -616,7 +549,7 @@ router.put("/customs/:productId", async (req, res, next) => {
         if (name !== undefined) product.name = name;
         if (description !== undefined) product.description = description;
 
-        product.updatedAt = new Date(); // [cite: 4, 50]
+        product.updatedAt = new Date();
         await product.save();
 
         res.status(200).json({
@@ -628,9 +561,6 @@ router.put("/customs/:productId", async (req, res, next) => {
     }
 });
 
-// ==========================================
-// DELETE /api/me/customs/:productId — Удаление кастомного товара
-// ==========================================
 router.delete("/customs/:productId", async (req, res, next) => {
     try {
         console.log(
@@ -653,7 +583,6 @@ router.delete("/customs/:productId", async (req, res, next) => {
                 .json({ message: "Товар не найден. Тебе нечего удалять." });
         }
 
-        // Удаляем сам товар. Связи в таблицах links удалятся благодаря каскадному удалению, которое я прописал ранее. [cite: 140, 144, 150]
         await product.destroy();
 
         res.status(200).json({
@@ -664,9 +593,6 @@ router.delete("/customs/:productId", async (req, res, next) => {
     }
 });
 
-// ==========================================
-// GET /api/me/cart — Получение содержимого корзины
-// ==========================================
 router.get("/cart", async (req, res, next) => {
     try {
         console.log(`Проверяю корзину моей девочки: ${req.user.username}`);
@@ -680,20 +606,17 @@ router.get("/cart", async (req, res, next) => {
                     as: "product",
                     include: [
                         {
-                            // Подтягиваем только ТЕКУЩУЮ активную цену [cite: 53, 56]
                             model: models.Price,
                             as: "prices",
                             where: { isActive: true },
-                            required: false, // На случай, если цена вдруг пропала (хотя я за этим слежу)
+                            required: false,
                         },
                         {
-                            // Подтягиваем фотографии товара для красивого отображения на клиенте [cite: 59]
                             model: models.ProductPhoto,
                             as: "photos",
                             through: { attributes: [] },
                         },
                         {
-                            // Подтягиваем кастомные фото, если товар кастомный [cite: 68]
                             model: models.CustomProductPhoto,
                             as: "customPhotos",
                             through: { attributes: [] },
@@ -712,9 +635,6 @@ router.get("/cart", async (req, res, next) => {
     }
 });
 
-// ==========================================
-// POST /api/me/cart — Добавление товара в корзину
-// ==========================================
 router.post("/cart", async (req, res, next) => {
     try {
         console.log(
@@ -723,7 +643,6 @@ router.post("/cart", async (req, res, next) => {
 
         const { productId, quantity } = req.body;
 
-        // Жесткая валидация. Я не пропущу пустые данные.
         if (!productId) {
             return res
                 .status(400)
@@ -738,7 +657,6 @@ router.post("/cart", async (req, res, next) => {
             });
         }
 
-        // Проверяем, существует ли товар вообще [cite: 39]
         const product = await models.Product.findByPk(productId);
         if (!product) {
             return res
@@ -746,7 +664,6 @@ router.post("/cart", async (req, res, next) => {
                 .json({ message: "Этого товара не существует." });
         }
 
-        // Проверяем, есть ли уже этот товар в корзине пользователя
         const existingCartItem = await models.CartItem.findOne({
             where: { userId: req.user.userId, productId },
         });
@@ -754,7 +671,6 @@ router.post("/cart", async (req, res, next) => {
         let cartItem;
 
         if (existingCartItem) {
-            // Если есть — просто обновляем количество
             existingCartItem.quantity += addQuantity;
             await existingCartItem.save();
             cartItem = existingCartItem;
@@ -762,7 +678,6 @@ router.post("/cart", async (req, res, next) => {
                 `Товар уже был в корзине. Я увеличил количество до ${cartItem.quantity}.`,
             );
         } else {
-            // Если нет — создаем новую запись [cite: 93, 97]
             cartItem = await models.CartItem.create({
                 userId: req.user.userId,
                 productId,
@@ -781,9 +696,6 @@ router.post("/cart", async (req, res, next) => {
     }
 });
 
-// ==========================================
-// PUT /api/me/cart/:cartItemId — Изменение количества конкретного товара
-// ==========================================
 router.put("/cart/:cartItemId", async (req, res, next) => {
     try {
         console.log(
@@ -802,7 +714,6 @@ router.put("/cart/:cartItemId", async (req, res, next) => {
             });
         }
 
-        // Жесткая проверка: элемент корзины должен существовать и принадлежать этому юзеру [cite: 93, 94]
         const cartItem = await models.CartItem.findOne({
             where: { cartItemId: cartItemId, userId: req.user.userId },
         });
@@ -826,9 +737,6 @@ router.put("/cart/:cartItemId", async (req, res, next) => {
     }
 });
 
-// ==========================================
-// DELETE /api/me/cart/:cartItemId — Удаление товара из корзины
-// ==========================================
 router.delete("/cart/:cartItemId", async (req, res, next) => {
     try {
         console.log(
@@ -848,7 +756,6 @@ router.delete("/cart/:cartItemId", async (req, res, next) => {
             });
         }
 
-        // Безжалостно стираем запись
         await cartItem.destroy();
 
         res.status(200).json({
@@ -859,9 +766,6 @@ router.delete("/cart/:cartItemId", async (req, res, next) => {
     }
 });
 
-// ==========================================
-// POST /api/me/checkout — Оформление заказа
-// ==========================================
 router.post("/checkout", async (req, res, next) => {
     try {
         console.log(
@@ -870,7 +774,6 @@ router.post("/checkout", async (req, res, next) => {
 
         const { pickupPointId, paymentMethodId } = req.body;
 
-        // Жесткий контроль. Я не позволю создавать заказы без точки выдачи и метода оплаты.
         if (!pickupPointId || !paymentMethodId) {
             return res.status(400).json({
                 message:
@@ -878,7 +781,6 @@ router.post("/checkout", async (req, res, next) => {
             });
         }
 
-        // 1. Достаем корзину юзера с актуальными ценами
         const cartItems = await models.CartItem.findAll({
             where: { userId: req.user.userId },
             include: [
@@ -890,7 +792,7 @@ router.post("/checkout", async (req, res, next) => {
                             model: models.Price,
                             as: "prices",
                             where: { isActive: true },
-                            required: true, // Товар обязан иметь активную цену в моей базе [cite: 5, 56]
+                            required: true,
                         },
                     ],
                 },
@@ -904,12 +806,10 @@ router.post("/checkout", async (req, res, next) => {
             });
         }
 
-        // 2. Считаем общую сумму заказа и готовим данные для OrderItem
         let totalAmount = 0;
         const itemsToInsert = [];
 
         for (const item of cartItems) {
-            // Поскольку required: true, цены точно есть. Берем первую актуальную.
             const currentPrice = parseFloat(item.product.prices[0].price);
             const quantity = item.quantity;
 
@@ -918,32 +818,29 @@ router.post("/checkout", async (req, res, next) => {
             itemsToInsert.push({
                 productId: item.productId,
                 quantity: quantity,
-                priceSnapshot: currentPrice, // Фиксируем цену [cite: 16, 126]
+                priceSnapshot: currentPrice,
             });
         }
 
-        // 3. Создаем сам заказ
         const newOrder = await models.Order.create({
             userId: req.user.userId,
-            status: "Новый", // Все заказы по умолчанию новые [cite: 116]
+            status: "Новый",
             pickupPointId,
             paymentMethodId,
-            totalAmount: totalAmount.toFixed(2), // [cite: 119]
+            totalAmount: totalAmount.toFixed(2),
             createdAt: new Date(),
             isHidden: false,
         });
 
-        // 4. Переносим товары из корзины в order_items
         for (const item of itemsToInsert) {
             await models.OrderItem.create({
                 orderId: newOrder.orderId,
                 productId: item.productId,
                 quantity: item.quantity,
-                priceSnapshot: item.priceSnapshot, // [cite: 126]
+                priceSnapshot: item.priceSnapshot,
             });
         }
 
-        // 5. Безжалостно очищаем корзину. Она свою работу выполнила.
         await models.CartItem.destroy({
             where: { userId: req.user.userId },
         });

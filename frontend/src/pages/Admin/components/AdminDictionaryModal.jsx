@@ -99,11 +99,10 @@ function AdminDictionaryModal({ isOpen, onClose, itemToEdit, activeTab }) {
             });
 
             if (res.ok) {
-                alert("Данные успешно сохранены.");
                 onClose(true);
             } else {
                 const err = await res.json();
-                alert(err.message || "Мой сервер отклонил твой запрос.");
+                alert(err.message || "сервер отклонил запрос.");
             }
         } catch (error) {
             console.error(error);

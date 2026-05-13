@@ -46,7 +46,7 @@ function ProductReviews({ product, setProduct }) {
 
     const onSubmit = async (data) => {
         if (data.rating === 0) {
-            alert("Поставь оценку. Пустоту я не принимаю.");
+            alert("Поставь оценку.");
             return;
         }
 
@@ -65,7 +65,7 @@ function ProductReviews({ product, setProduct }) {
 
             if (res.ok) {
                 const result = await res.json();
-                alert("Отзыв успешно записан в базу.");
+                alert("Отзыв успешно сохранен");
                 reset();
                 // Я подтягиваю новый отзыв в стейт, чтобы ты сразу его увидела
                 setProduct((prev) => ({
@@ -124,7 +124,7 @@ function ProductReviews({ product, setProduct }) {
             {appState.isAuthenticated && hasOrdered && !hasReviewed && (
                 <div className="product-review-form-container">
                     <p className="product-review-form-title">
-                        Оставь свой отзыв. Я жду.
+                        Оставь свой отзыв
                     </p>
                     <form
                         className="product-review-form"
@@ -215,7 +215,7 @@ function ProductReviews({ product, setProduct }) {
                     ))
                 ) : (
                     <p style={{ color: "var(--color-dark-brown)" }}>
-                        Пока нет отзывов. Будь первой.
+                        Пока нет отзывов.
                     </p>
                 )}
             </div>

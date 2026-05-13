@@ -36,7 +36,7 @@ function AdminProducts() {
     const handleDeleteClick = async (productId) => {
         if (
             !window.confirm(
-                "Отправить этот товар в архив? Пользователи больше его не увидят.",
+                "Отправить этот товар в архив?",
             )
         )
             return;
@@ -59,7 +59,7 @@ function AdminProducts() {
                 );
             } else {
                 const err = await res.json();
-                alert(err.message || "Я не смог удалить товар.");
+                alert(err.message || "Ошибка удаления");
             }
         } catch (error) {
             console.error(error);

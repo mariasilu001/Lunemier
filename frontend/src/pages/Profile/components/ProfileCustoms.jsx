@@ -55,7 +55,7 @@ function ProfileCustoms() {
                 },
                 body: JSON.stringify({ productId, quantity: 1 }),
             });
-            if (res.ok) alert("Твой дизайн отправлен в корзину.");
+            if (res.ok) console.log("Твой дизайн отправлен в корзину.");
             else alert("Ошибка добавления.");
         } catch (err) {
             console.error(err);
@@ -63,7 +63,7 @@ function ProfileCustoms() {
     };
 
     const handleDelete = async (productId) => {
-        if (!window.confirm("Удалить этот дизайн навсегда?")) return;
+        if (!window.confirm("Удалить этот дизайн?")) return;
         try {
             const token = localStorage.getItem("token");
             const res = await fetch(`/api/me/customs/${productId}`, {
@@ -74,7 +74,7 @@ function ProfileCustoms() {
                 setCustoms((prev) =>
                     prev.filter((c) => c.productId !== productId),
                 );
-                alert("Уничтожено.");
+            
             } else {
                 alert("Ошибка удаления.");
             }
@@ -90,7 +90,7 @@ function ProfileCustoms() {
             <div className="profile-customs-list">
                 {customs.length === 0 && (
                     <p style={{ color: "var(--color-dark-brown)" }}>
-                        Ты еще ничего не создавала.
+                        Пуссто
                     </p>
                 )}
                 {customs.map((item) => (

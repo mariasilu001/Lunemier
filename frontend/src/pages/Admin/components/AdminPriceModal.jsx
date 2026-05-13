@@ -25,7 +25,7 @@ function AdminPriceModal({ isOpen, onClose, product }) {
 
     const handleSave = async () => {
         if (!newPrice || isNaN(newPrice) || Number(newPrice) <= 0) {
-            alert("Цена должна быть числом больше нуля. Не делай ошибок.");
+            alert("Цена должна быть числом больше нуля");
             return;
         }
 
@@ -45,7 +45,6 @@ function AdminPriceModal({ isOpen, onClose, product }) {
             });
 
             if (res.ok) {
-                alert("Цена жестко зафиксирована.");
                 onClose(true); // Сообщаем родителю об обновлении
             } else {
                 const err = await res.json();

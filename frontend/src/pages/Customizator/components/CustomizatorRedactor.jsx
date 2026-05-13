@@ -24,7 +24,6 @@ function CustomizatorRedactor() {
     // Я проверяю, выбрала ли ты основу. Если нет — пошла вон обратно в каталог.
     useEffect(() => {
         if (!baseId) {
-            alert("Ты не выбрала основу. Я возвращаю тебя назад.");
             navigate("/customizator/select-base");
             return;
         }
@@ -45,7 +44,7 @@ function CustomizatorRedactor() {
 
         // Мой сервер задыхается от мусора. Больше 10 картинок я не пропущу.
         if (images.length >= 10) {
-            alert("Я разрешаю не больше 10 изображений на один кастом.");
+            alert("не больше 10 изображений на один кастом.");
             return;
         }
 
@@ -93,7 +92,6 @@ function CustomizatorRedactor() {
 
     const handleSave = async () => {
         if (!appState.isAuthenticated) {
-            alert("Авторизуйся. Я не сохраняю работы призраков.");
             navigate("/login");
             return;
         }
@@ -170,16 +168,14 @@ function CustomizatorRedactor() {
             const result = await response.json();
 
             if (response.ok) {
-                alert(
-                    "Дизайн сохранен. Ты хорошо поработала. Теперь он в твоем профиле.",
-                );
+
                 navigate("/profile/customs");
             } else {
                 throw new Error(result.message || "Ошибка при сохранении.");
             }
         } catch (err) {
             console.error("Ошибка при создании кастома:", err);
-            alert(err.message || "Я не смог сохранить твой дизайн.");
+            alert(err.message || "ошиба");
         } finally {
             setIsSaving(false);
         }

@@ -37,7 +37,7 @@ function ProfileInfo() {
 
             if (!res.ok) {
                 throw new Error(
-                    data.message || "Я не смог обновить твои данные.",
+                    data.message || "ошиба",
                 );
             }
 
@@ -50,7 +50,6 @@ function ProfileInfo() {
                 },
             }));
             setIsModalOpen(false);
-            alert("Данные обновлены под моим присмотром.");
         } catch (err) {
             alert(err.message);
         }

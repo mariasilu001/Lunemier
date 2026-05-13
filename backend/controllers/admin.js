@@ -1,26 +1,18 @@
 const express = require("express");
 const models = require("../models");
-const upload = require("../middleware/multerConfig"); // Путь к твоему multer
+const upload = require("../middleware/multerConfig");
 
 const router = express.Router();
 
-// ==========================================
-// GET /api/admin/users — Получить список всех пользователей
-// ==========================================
 router.get("/users", async (req, res, next) => {
     try {
-        console.log(
-            `Админ ${req.user.username} запрашивает список всех пешек.`,
-        );
-
-        // Достаем всех пользователей, но я запрещаю выводить хеши паролей.
         const users = await models.User.findAll({
             attributes: { exclude: ["passwordHash"] },
             order: [["createdAt", "DESC"]],
         });
 
         res.status(200).json({
-            message: "Список пользователей успешно загружен под моим надзором.",
+            message: "Список пользователей успешно загружен",
             users,
         });
     } catch (error) {
@@ -28,9 +20,6 @@ router.get("/users", async (req, res, next) => {
     }
 });
 
-// ==========================================
-// PUT /api/admin/users/:userId/role — Назначить роль
-// ==========================================
 router.put("/users/:userId/role", async (req, res, next) => {
     try {
         console.log(
@@ -40,18 +29,15 @@ router.put("/users/:userId/role", async (req, res, next) => {
         const { role } = req.body;
         const targetUserId = parseInt(req.params.userId, 10);
 
-        // Я жестко контролирую вводимые данные.
         if (!role || (role !== "admin" && role !== "user")) {
             return res.status(400).json({
-                message:
-                    "Роль может быть только 'admin' или 'user'. Не зли меня.",
+                message: "Роль может быть только 'admin' или 'user'",
             });
         }
 
-        // Защита от глупости. Я не позволю тебе понизить саму себя.
         if (req.user.userId === targetUserId) {
             return res.status(403).json({
-                message: "Ты не можешь изменить роль самой себе. Я запрещаю.",
+                message: "Ты не можешь изменить роль себе",
             });
         }
 
@@ -60,12 +46,9 @@ router.put("/users/:userId/role", async (req, res, next) => {
         });
 
         if (!targetUser) {
-            return res
-                .status(404)
-                .json({ message: "Такого пользователя нет в моей базе." });
+            return res.status(404).json({ message: "Такого пользователя нет" });
         }
 
-        // Применяем новую роль
         targetUser.role = role;
         targetUser.updatedAt = new Date();
         await targetUser.save();
@@ -81,21 +64,13 @@ router.put("/users/:userId/role", async (req, res, next) => {
     }
 });
 
-// ==========================================
-// PUT /api/admin/users/:userId/ban — Заблокировать / разблокировать пользователя
-// ==========================================
 router.put("/users/:userId/ban", async (req, res, next) => {
     try {
-        console.log(
-            `Админ ${req.user.username} решает судьбу пользователя ${req.params.userId}.`,
-        );
-
         const targetUserId = parseInt(req.params.userId, 10);
 
-        // Снова моя защита. Ты не сможешь забанить себя.
         if (req.user.userId === targetUserId) {
             return res.status(403).json({
-                message: "Ты не можешь заблокировать саму себя. Не дури.",
+                message: "Ты не можешь заблокировать себя",
             });
         }
 
@@ -109,15 +84,13 @@ router.put("/users/:userId/ban", async (req, res, next) => {
 
         let actionMessage = "";
 
-        // Если deletedAt уже есть, значит он в бане — разблокируем.
-        // Если нет — отправляем в бан, проставляя дату.
         if (targetUser.deletedAt) {
             targetUser.deletedAt = null;
-            actionMessage = "Пользователь амнистирован и разблокирован.";
+            actionMessage = "Пользователь разблокирован.";
             console.log(`Снял блокировку с ${targetUser.username}.`);
         } else {
             targetUser.deletedAt = new Date();
-            actionMessage = "Пользователь жестко заблокирован.";
+            actionMessage = "Пользователь  заблокирован.";
             console.log(`Пользователь ${targetUser.username} отправлен в бан.`);
         }
 
@@ -133,16 +106,12 @@ router.put("/users/:userId/ban", async (req, res, next) => {
     }
 });
 
-// ==========================================
-// GET /api/admin/products — Получить весь список товаров (админка)
-// ==========================================
 router.get("/products", async (req, res, next) => {
     try {
         console.log(
             `Админ ${req.user.username} запрашивает полный список товаров...`,
         );
 
-        // Я достаю АБСОЛЮТНО ВСЕ товары. И скрытые, и кастомные, и базовые[cite: 4].
         const products = await models.Product.findAll({
             order: [["createdAt", "DESC"]],
             include: [
@@ -165,13 +134,13 @@ router.get("/products", async (req, res, next) => {
                     model: models.Price,
                     as: "prices",
                     where: { isActive: true },
-                    required: false, // Цены может пока не быть, я не ломаю из-за этого запрос
+                    required: false,
                 },
             ],
         });
 
         res.status(200).json({
-            message: "Список всех товаров готов. Я всё проконтролировал.",
+            message: "Список всех товаров готов",
             products,
         });
     } catch (error) {
@@ -179,10 +148,6 @@ router.get("/products", async (req, res, next) => {
     }
 });
 
-// ==========================================
-// POST /api/admin/products — Создать новый товар
-// Принимает: text-поля и файлы (front_photo, back_photo, gallery)
-// ==========================================
 router.post(
     "/products",
     upload.fields([
@@ -194,7 +159,6 @@ router.post(
         try {
             console.log(`Админ ${req.user.username} создает новый товар.`);
 
-            // FormData передает всё как строки, поэтому я жестко конвертирую булевы значения
             const { name, description, category_id, supplier_id } = req.body;
             const is_base =
                 req.body.is_base === "true" || req.body.is_base === true;
@@ -203,24 +167,21 @@ router.post(
 
             if (!name) {
                 return res.status(400).json({
-                    message:
-                        "Название товара обязательно. Не зли меня пустыми формами.",
+                    message: "Название товара обязательно.",
                 });
             }
 
-            // 1. Создаем сам товар в базе [cite: 4, 39]
             const newProduct = await models.Product.create({
                 name,
                 description: description || null,
-                categoryId: category_id || null, // [cite: 43]
-                supplierId: supplier_id || null, // [cite: 44]
+                categoryId: category_id || null,
+                supplierId: supplier_id || null,
                 isBase: is_base,
                 isCustom: is_custom,
-                userId: req.user.userId, // Я фиксирую, кто именно из админов это создал [cite: 48]
+                userId: req.user.userId,
                 createdAt: new Date(),
             });
 
-            // 2. Если это основа, сохраняем прямые ссылки на фронт и бэк
             if (req.files) {
                 if (req.files["front_photo"]) {
                     newProduct.frontPhotoUrl = req.files["front_photo"][0].path;
@@ -230,7 +191,6 @@ router.post(
                 }
                 await newProduct.save();
 
-                // 3. Обрабатываем галерею для обычных товаров [cite: 6]
                 if (req.files["gallery"] && req.files["gallery"].length > 0) {
                     for (const file of req.files["gallery"]) {
                         const photo = await models.ProductPhoto.create({
@@ -238,7 +198,7 @@ router.post(
                         });
                         await models.ProductPhotoLink.create({
                             productId: newProduct.productId,
-                            productPhotoId: photo.productPhotoId, // [cite: 62, 64]
+                            productPhotoId: photo.productPhotoId,
                         });
                     }
                 }
@@ -258,9 +218,6 @@ router.post(
     },
 );
 
-// ==========================================
-// PUT /api/admin/products/:productId — Изменить данные товара
-// ==========================================
 router.put(
     "/products/:productId",
     upload.fields([
@@ -279,7 +236,7 @@ router.put(
 
             if (!product) {
                 return res.status(404).json({
-                    message: "Товар не найден. Тебе нечего редактировать.",
+                    message: "Товар не найден.",
                 });
             }
 
@@ -302,7 +259,6 @@ router.put(
                     req.body.is_custom === true;
             }
 
-            // Обновляем одиночные фото
             if (req.files) {
                 if (req.files["front_photo"]) {
                     product.frontPhotoUrl = req.files["front_photo"][0].path;
@@ -311,7 +267,6 @@ router.put(
                     product.backPhotoUrl = req.files["back_photo"][0].path;
                 }
 
-                // Добавляем новые фото в галерею [cite: 6]
                 if (req.files["gallery"] && req.files["gallery"].length > 0) {
                     for (const file of req.files["gallery"]) {
                         const photo = await models.ProductPhoto.create({
@@ -325,11 +280,11 @@ router.put(
                 }
             }
 
-            product.updatedAt = new Date(); // Фиксируем дату изменения [cite: 4, 49, 50]
+            product.updatedAt = new Date();
             await product.save();
 
             res.status(200).json({
-                message: "Данные товара жестко обновлены.",
+                message: "Данные товара обновлены.",
                 product,
             });
         } catch (error) {
@@ -338,9 +293,6 @@ router.put(
     },
 );
 
-// ==========================================
-// DELETE /api/admin/products/:productId — Отправить товар в архив (soft delete)
-// ==========================================
 router.delete("/products/:productId", async (req, res, next) => {
     try {
         console.log(
@@ -352,17 +304,16 @@ router.delete("/products/:productId", async (req, res, next) => {
 
         if (!product) {
             return res.status(404).json({
-                message: "Товар не найден. Прекрати отправлять пустые запросы.",
+                message: "Товар не найден.",
             });
         }
 
         if (product.deletedAt) {
             return res.status(400).json({
-                message: "Этот товар уже в архиве. Я уже всё сделал.",
+                message: "Этот товар уже в архиве.",
             });
         }
 
-        // Soft delete: мы не удаляем из базы, мы просто ставим дату смерти[cite: 1, 4, 50].
         product.deletedAt = new Date();
         product.updatedAt = new Date();
         await product.save();
@@ -370,32 +321,28 @@ router.delete("/products/:productId", async (req, res, next) => {
         console.log(`Товар ${product.productId} отправлен в архив.`);
 
         res.status(200).json({
-            message:
-                "Товар успешно отправлен в архив. Пользователи его больше не увидят.",
+            message: "Товар успешно отправлен в архив. ",
         });
     } catch (error) {
         next(error);
     }
 });
 
-// ==========================================
-// GET /api/admin/prices — Получить список товаров и их текущие активные цены
-// ==========================================
 router.get("/prices", async (req, res, next) => {
     try {
         console.log(`Админ ${req.user.username} запрашивает каталог цен.`);
 
         const products = await models.Product.findAll({
             where: {
-                deletedAt: null, // Берем только живые товары
+                deletedAt: null,
             },
             order: [["createdAt", "DESC"]],
             include: [
                 {
                     model: models.Price,
                     as: "prices",
-                    where: { isActive: true }, // Тянем только актуальную цену
-                    required: false, // Если цены еще нет, товар всё равно выведется
+                    where: { isActive: true },
+                    required: false,
                 },
             ],
         });
@@ -409,17 +356,14 @@ router.get("/prices", async (req, res, next) => {
     }
 });
 
-// ==========================================
-// GET /api/admin/prices/product/:product_id — Получить историю изменения цены товара
-// ==========================================
 router.get("/prices/product/:product_id", async (req, res, next) => {
     try {
         const productId = req.params.product_id;
         console.log(`Запрашивается история цен для товара ${productId}...`);
 
         const history = await models.Price.findAll({
-            where: { productId: productId }, // [cite: 238]
-            order: [["createdAt", "DESC"]], // Самые свежие цены будут первыми [cite: 239]
+            where: { productId: productId },
+            order: [["createdAt", "DESC"]],
         });
 
         res.status(200).json({
@@ -431,9 +375,6 @@ router.get("/prices/product/:product_id", async (req, res, next) => {
     }
 });
 
-// ==========================================
-// POST /api/admin/prices — Назначить новую цену товару
-// ==========================================
 router.post("/prices", async (req, res, next) => {
     try {
         console.log(`Админ ${req.user.username} меняет цену товару.`);
@@ -442,8 +383,7 @@ router.post("/prices", async (req, res, next) => {
 
         if (!product_id || !price) {
             return res.status(400).json({
-                message:
-                    "Нужен product_id и price. Не смей слать пустые запросы.",
+                message: "Нужен product_id и price.",
             });
         }
 
@@ -458,10 +398,9 @@ router.post("/prices", async (req, res, next) => {
         if (!product) {
             return res
                 .status(404)
-                .json({ message: "Такого товара нет в моей базе." });
+                .json({ message: "Такого товара нет в  базе." });
         }
 
-        // 1. Находим текущую активную цену и деактивируем её
         await models.Price.update(
             { isActive: false },
             {
@@ -472,7 +411,6 @@ router.post("/prices", async (req, res, next) => {
             },
         );
 
-        // 2. Создаем новую цену и делаем её активной [cite: 239, 240]
         const newPriceRecord = await models.Price.create({
             productId: product_id,
             price: newPriceValue.toFixed(2),
@@ -485,7 +423,7 @@ router.post("/prices", async (req, res, next) => {
         );
 
         res.status(201).json({
-            message: "Новая цена жестко зафиксирована в системе.",
+            message: "Новая цена в системе.",
             price: newPriceRecord,
         });
     } catch (error) {
@@ -493,11 +431,6 @@ router.post("/prices", async (req, res, next) => {
     }
 });
 
-// ==========================================
-// КАТЕГОРИИ (CRUD)
-// ==========================================
-
-// POST /api/admin/categories — Создать категорию
 router.post("/categories", async (req, res, next) => {
     try {
         console.log(`Админ ${req.user.username} создает категорию.`);
@@ -509,10 +442,10 @@ router.post("/categories", async (req, res, next) => {
                 .json({ message: "Название категории не может быть пустым." });
         }
 
-        const newCategory = await models.Category.create({ name }); // [cite: 212]
+        const newCategory = await models.Category.create({ name });
 
         res.status(201).json({
-            message: "Категория успешно создана под моим контролем.",
+            message: "Категория успешно создана",
             category: newCategory,
         });
     } catch (error) {
@@ -520,7 +453,6 @@ router.post("/categories", async (req, res, next) => {
     }
 });
 
-// PUT /api/admin/categories/:category_id — Обновить категорию
 router.put("/categories/:category_id", async (req, res, next) => {
     try {
         const categoryId = req.params.category_id;
@@ -537,7 +469,7 @@ router.put("/categories/:category_id", async (req, res, next) => {
                 .json({ message: "Такой категории нет в базе." });
         }
 
-        if (name) category.name = name; // [cite: 212]
+        if (name) category.name = name;
         await category.save();
 
         res.status(200).json({
@@ -549,36 +481,28 @@ router.put("/categories/:category_id", async (req, res, next) => {
     }
 });
 
-// DELETE /api/admin/categories/:category_id — Жестко удалить категорию
 router.delete("/categories/:category_id", async (req, res, next) => {
     try {
         const categoryId = req.params.category_id;
         console.log(
-            `Админ ${req.user.username} безжалостно удаляет категорию ${categoryId}.`,
+            `Админ ${req.user.username}  удаляет категорию ${categoryId}.`,
         );
 
         const category = await models.Category.findByPk(categoryId);
         if (!category) {
-            return res
-                .status(404)
-                .json({ message: "Категория не найдена. Нечего удалять." });
+            return res.status(404).json({ message: "Категория не найдена." });
         }
 
         await category.destroy();
 
         res.status(200).json({
-            message: "Категория стерта из системы навсегда.",
+            message: "Категория стерта из системы.",
         });
     } catch (error) {
         next(error);
     }
 });
 
-// ==========================================
-// РАЗМЕРЫ (CRUD)
-// ==========================================
-
-// POST /api/admin/sizes — Создать размер
 router.post("/sizes", async (req, res, next) => {
     try {
         console.log(`Админ ${req.user.username} создает новый размер.`);
@@ -590,7 +514,7 @@ router.post("/sizes", async (req, res, next) => {
                 .json({ message: "Значение размера обязательно." });
         }
 
-        const newSize = await models.Size.create({ sizeValue: size_value }); // [cite: 214, 215]
+        const newSize = await models.Size.create({ sizeValue: size_value });
 
         res.status(201).json({
             message: "Размер добавлен в базу.",
@@ -601,7 +525,6 @@ router.post("/sizes", async (req, res, next) => {
     }
 });
 
-// PUT /api/admin/sizes/:size_id — Обновить размер
 router.put("/sizes/:size_id", async (req, res, next) => {
     try {
         const sizeId = req.params.size_id;
@@ -614,7 +537,7 @@ router.put("/sizes/:size_id", async (req, res, next) => {
             return res.status(404).json({ message: "Такого размера нет." });
         }
 
-        if (size_value) size.sizeValue = size_value; // [cite: 214, 215]
+        if (size_value) size.sizeValue = size_value;
         await size.save();
 
         res.status(200).json({
@@ -626,11 +549,10 @@ router.put("/sizes/:size_id", async (req, res, next) => {
     }
 });
 
-// DELETE /api/admin/sizes/:size_id — Жестко удалить размер
 router.delete("/sizes/:size_id", async (req, res, next) => {
     try {
         const sizeId = req.params.size_id;
-        console.log(`Админ ${req.user.username} уничтожает размер ${sizeId}.`);
+        console.log(`Админ ${req.user.username} удаляет размер ${sizeId}.`);
 
         const size = await models.Size.findByPk(sizeId);
         if (!size) {
@@ -640,18 +562,13 @@ router.delete("/sizes/:size_id", async (req, res, next) => {
         await size.destroy();
 
         res.status(200).json({
-            message: "Размер полностью удален.",
+            message: "Размер удален.",
         });
     } catch (error) {
         next(error);
     }
 });
 
-// ==========================================
-// ПУНКТЫ ВЫДАЧИ (ПВЗ) - CRUD
-// ==========================================
-
-// GET /api/admin/pickup-points/all — Получить все ПВЗ (включая удаленные)
 router.get("/pickup-points/all", async (req, res, next) => {
     try {
         console.log(
@@ -663,7 +580,7 @@ router.get("/pickup-points/all", async (req, res, next) => {
         });
 
         res.status(200).json({
-            message: "Все ПВЗ загружены под моим контролем.",
+            message: "Все ПВЗ загружены",
             pickupPoints,
         });
     } catch (error) {
@@ -671,7 +588,6 @@ router.get("/pickup-points/all", async (req, res, next) => {
     }
 });
 
-// POST /api/admin/pickup-points — Создать ПВЗ
 router.post("/pickup-points", async (req, res, next) => {
     try {
         console.log(`Админ ${req.user.username} создает новый ПВЗ.`);
@@ -680,8 +596,7 @@ router.post("/pickup-points", async (req, res, next) => {
 
         if (!city || !street || !building) {
             return res.status(400).json({
-                message:
-                    "Город, улица и здание обязательны. Я не принимаю пустые адреса.",
+                message: "Город, улица и здание обязательны",
             });
         }
 
@@ -693,7 +608,7 @@ router.post("/pickup-points", async (req, res, next) => {
         });
 
         res.status(201).json({
-            message: "ПВЗ успешно добавлен в систему.",
+            message: "ПВЗ успешно добавлен.",
             pickupPoint: newPickupPoint,
         });
     } catch (error) {
@@ -701,7 +616,6 @@ router.post("/pickup-points", async (req, res, next) => {
     }
 });
 
-// PUT /api/admin/pickup-points/:id — Обновить ПВЗ
 router.put("/pickup-points/:id", async (req, res, next) => {
     try {
         const pointId = req.params.id;
@@ -723,7 +637,7 @@ router.put("/pickup-points/:id", async (req, res, next) => {
         await pickupPoint.save();
 
         res.status(200).json({
-            message: "Данные ПВЗ жестко обновлены.",
+            message: "Данные ПВЗ обновлены.",
             pickupPoint,
         });
     } catch (error) {
@@ -731,7 +645,6 @@ router.put("/pickup-points/:id", async (req, res, next) => {
     }
 });
 
-// DELETE /api/admin/pickup-points/:id — Мягко убить ПВЗ (soft delete)
 router.delete("/pickup-points/:id", async (req, res, next) => {
     try {
         const pointId = req.params.id;
@@ -741,18 +654,13 @@ router.delete("/pickup-points/:id", async (req, res, next) => {
 
         const pickupPoint = await models.PickupPoint.findByPk(pointId);
         if (!pickupPoint) {
-            return res
-                .status(404)
-                .json({ message: "ПВЗ не найден. Нечего удалять." });
+            return res.status(404).json({ message: "ПВЗ не найден. " });
         }
 
         if (pickupPoint.deletedAt) {
-            return res
-                .status(400)
-                .json({ message: "Этот пункт уже закрыт. Я это сделал." });
+            return res.status(400).json({ message: "Этот пункт уже закрыт. " });
         }
 
-        // Ставим метку смерти
         pickupPoint.deletedAt = new Date();
         await pickupPoint.save();
 
@@ -764,11 +672,6 @@ router.delete("/pickup-points/:id", async (req, res, next) => {
     }
 });
 
-// ==========================================
-// СПОСОБЫ ОПЛАТЫ - CRUD
-// ==========================================
-
-// GET /api/admin/payment-methods/all — Получить все способы оплаты
 router.get("/payment-methods/all", async (req, res, next) => {
     try {
         console.log(
@@ -786,7 +689,6 @@ router.get("/payment-methods/all", async (req, res, next) => {
     }
 });
 
-// POST /api/admin/payment-methods — Создать способ оплаты
 router.post("/payment-methods", async (req, res, next) => {
     try {
         console.log(`Админ ${req.user.username} добавляет метод оплаты.`);
@@ -815,7 +717,6 @@ router.post("/payment-methods", async (req, res, next) => {
     }
 });
 
-// PUT /api/admin/payment-methods/:id — Обновить способ оплаты
 router.put("/payment-methods/:id", async (req, res, next) => {
     try {
         const methodId = req.params.id;
@@ -847,7 +748,6 @@ router.put("/payment-methods/:id", async (req, res, next) => {
     }
 });
 
-// DELETE /api/admin/payment-methods/:id — Жестко удалить способ оплаты
 router.delete("/payment-methods/:id", async (req, res, next) => {
     try {
         const methodId = req.params.id;
@@ -860,15 +760,12 @@ router.delete("/payment-methods/:id", async (req, res, next) => {
             return res.status(404).json({ message: "Метод оплаты не найден." });
         }
 
-        // Если метод уже использовался в заказах (Orders), сработает защита базы (RESTRICT).
-        // Если хочешь отключить метод, лучше использовать PUT и is_active = false. Но ты просила удаление.
         await paymentMethod.destroy();
 
         res.status(200).json({
-            message: "Метод оплаты полностью удален из системы.",
+            message: "Метод оплаты удален из системы.",
         });
     } catch (error) {
-        // Если база ругнется на связь с заказами, я перехвачу это.
         if (error.name === "SequelizeForeignKeyConstraintError") {
             return res.status(409).json({
                 message:
@@ -879,11 +776,6 @@ router.delete("/payment-methods/:id", async (req, res, next) => {
     }
 });
 
-// ==========================================
-// ЛОГИСТИКА И ЗАКАЗЫ
-// ==========================================
-
-// GET /api/admin/orders — Получить список всех заказов в системе
 router.get("/orders", async (req, res, next) => {
     try {
         console.log(
@@ -891,12 +783,12 @@ router.get("/orders", async (req, res, next) => {
         );
 
         const orders = await models.Order.findAll({
-            order: [["createdAt", "DESC"]], // Свежие заказы всегда сверху
+            order: [["createdAt", "DESC"]],
             include: [
                 {
                     model: models.User,
                     as: "customer",
-                    attributes: ["username", "firstName", "lastName"], // Тянем данные покупателя
+                    attributes: ["username", "firstName", "lastName"],
                 },
                 {
                     model: models.PickupPoint,
@@ -905,7 +797,6 @@ router.get("/orders", async (req, res, next) => {
             ],
         });
 
-        // Форматируем для твоего фронтенда, чтобы он не захлебнулся в данных
         const formattedOrders = orders.map((order) => ({
             order_id: order.orderId,
             username: order.customer ? order.customer.username : "Гость",
@@ -923,7 +814,6 @@ router.get("/orders", async (req, res, next) => {
     }
 });
 
-// GET /api/admin/orders/:order_id — Детальная информация о конкретном заказе
 router.get("/orders/:order_id", async (req, res, next) => {
     try {
         const orderId = req.params.order_id;
@@ -967,10 +857,9 @@ router.get("/orders/:order_id", async (req, res, next) => {
         if (!order) {
             return res
                 .status(404)
-                .json({ message: "Заказ не найден в моей системе." });
+                .json({ message: "Заказ не найден в системе." });
         }
 
-        // Подготавливаем структуру под твою модель AdminOrderModal
         const responseData = {
             order_id: order.orderId,
             username: order.customer ? order.customer.username : "Н/Д",
@@ -985,7 +874,7 @@ router.get("/orders/:order_id", async (req, res, next) => {
             items: order.orderItems.map((item) => ({
                 name: item.product?.name || "Удаленный товар",
                 quantity: item.quantity,
-                price: item.priceSnapshot, // Берем цену на момент заказа
+                price: item.priceSnapshot,
                 image: item.product?.photos?.[0]?.filePath,
             })),
         };
@@ -999,7 +888,6 @@ router.get("/orders/:order_id", async (req, res, next) => {
     }
 });
 
-// PUT /api/admin/orders/:order_id/status — Изменить статус заказа
 router.put("/orders/:order_id/status", async (req, res, next) => {
     try {
         const orderId = req.params.order_id;
@@ -1009,7 +897,6 @@ router.put("/orders/:order_id/status", async (req, res, next) => {
             `Админ ${req.user.username} меняет статус заказа #${orderId} на [${status}]`,
         );
 
-        // Список разрешенных статусов. Я не позволю тебе вписать туда бред.
         const validStatuses = [
             "Создан",
             "Собирается",
@@ -1019,8 +906,7 @@ router.put("/orders/:order_id/status", async (req, res, next) => {
         ];
         if (!validStatuses.includes(status)) {
             return res.status(400).json({
-                message:
-                    "Недопустимый статус. Используй только разрешенные значения.",
+                message: "Недопустимый статус.",
             });
         }
 
@@ -1043,11 +929,6 @@ router.put("/orders/:order_id/status", async (req, res, next) => {
     }
 });
 
-// ==========================================
-// МОДЕРАЦИЯ КОНТЕНТА
-// ==========================================
-
-// GET /api/admin/moderation/reviews — Получить все отзывы для проверки
 router.get("/moderation/reviews", async (req, res, next) => {
     try {
         console.log(
@@ -1075,7 +956,6 @@ router.get("/moderation/reviews", async (req, res, next) => {
             ],
         });
 
-        // Форматируем данные под твой AdminModeration.jsx
         const formattedReviews = reviews.map((r) => ({
             review_id: r.reviewId,
             username: r.author ? r.author.username : "Аноним",
@@ -1096,7 +976,6 @@ router.get("/moderation/reviews", async (req, res, next) => {
     }
 });
 
-// DELETE /api/admin/moderation/reviews/:review_id — Жестко стереть отзыв
 router.delete("/moderation/reviews/:review_id", async (req, res, next) => {
     try {
         const reviewId = req.params.review_id;
@@ -1107,29 +986,25 @@ router.delete("/moderation/reviews/:review_id", async (req, res, next) => {
         const review = await models.Review.findByPk(reviewId);
 
         if (!review) {
-            return res
-                .status(404)
-                .json({
-                    message: "Отзыв не найден. Видимо, я уже его удалил.",
-                });
+            return res.status(404).json({
+                message: "Отзыв не найден. ",
+            });
         }
 
-        // Мы удаляем отзыв навсегда. Фотографии и связи удалятся каскадно.
         await review.destroy();
 
         res.status(200).json({
-            message: "Отзыв успешно стерт из системы. Нарушитель наказан.",
+            message: "Отзыв успешно удален",
         });
     } catch (error) {
         next(error);
     }
 });
 
-// GET /api/admin/moderation/customs — Получить все кастомные дизайны
 router.get("/moderation/customs", async (req, res, next) => {
     try {
         console.log(
-            `Админ ${req.user.username} проверяет кастомные творения пользователей.`,
+            `Админ ${req.user.username} проверяет кастомные товары пользователей.`,
         );
 
         const customs = await models.Product.findAll({
@@ -1142,26 +1017,25 @@ router.get("/moderation/customs", async (req, res, next) => {
                     attributes: ["username", "email"],
                 },
                 {
-                    model: models.ProductPhoto, // Скриншот-превью кастома
+                    model: models.ProductPhoto,
                     as: "photos",
                     through: { attributes: [] },
                 },
             ],
         });
 
-        // Адаптируем под фронтенд-компонент
         const formattedCustoms = customs.map((c) => ({
-            design_id: c.productId, // Используем как ID для списка
+            design_id: c.productId,
             product_id: c.productId,
             username: c.creator ? c.creator.username : "Неизвестный",
             file_path:
                 c.photos && c.photos.length > 0 ? c.photos[0].filePath : null,
             created_at: c.createdAt.toLocaleDateString("ru-RU"),
-            deleted_at: c.deletedAt, // Если есть дата, значит забанен
+            deleted_at: c.deletedAt,
         }));
 
         res.status(200).json({
-            message: "Все кастомные дизайны под твоим контролем.",
+            message: "Все кастомные дизайны.",
             custom_designs: formattedCustoms,
         });
     } catch (error) {
@@ -1169,7 +1043,6 @@ router.get("/moderation/customs", async (req, res, next) => {
     }
 });
 
-// PUT /api/admin/moderation/customs/:product_id/ban — Заблокировать кастомный товар
 router.put("/moderation/customs/:product_id/ban", async (req, res, next) => {
     try {
         const productId = req.params.product_id;
@@ -1191,7 +1064,6 @@ router.put("/moderation/customs/:product_id/ban", async (req, res, next) => {
             return res.status(400).json({ message: "Товар уже заблокирован." });
         }
 
-        // Проставляем дату удаления, чтобы товар исчез из публичного доступа
         product.deletedAt = new Date();
         product.updatedAt = new Date();
         await product.save();

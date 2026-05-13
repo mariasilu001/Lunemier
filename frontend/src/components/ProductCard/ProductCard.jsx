@@ -12,7 +12,6 @@ function ProductCard({ product, isBaseMode = false }) {
         e.stopPropagation();
 
         if (!appState.isAuthenticated) {
-            alert("Сначала авторизуйся. Я не добавляю товары призракам.");
             navigate("/login");
             return;
         }
@@ -32,7 +31,6 @@ function ProductCard({ product, isBaseMode = false }) {
             });
 
             if (res.ok) {
-                alert("Товар добавлен в корзину. Я всё проконтролировал.");
             } else {
                 const err = await res.json();
                 alert(err.message || "Я не смог добавить товар.");
@@ -51,10 +49,18 @@ function ProductCard({ product, isBaseMode = false }) {
         }
     };
 
-    const imagePath =
-        product.photos && product.photos.length > 0
-            ? `/${product.photos[0].filePath.replace(/\\/g, "/")}`
-            : "https://i.pinimg.com/736x/81/eb/7a/81eb7a8dd4bbd4720ad2ed935b4d3c4b.jpg";
+    let imagePath = "https://i.pinimg.com/736x/81/eb/7a/81eb7a8dd4bbd4720ad2ed935b4d3c4b.jpg";
+
+    if (product.isBase && product.frontPhotoUrl) {
+        // Я сказал: если товар базовый, рендерим строго фото спереди
+        imagePath = `/uploads/${product.frontPhotoUrl}`;
+    } else if (product.photos && product.photos.length > 0) {
+        // Для всех остальных обычных товаров берем первую фотку из массива
+        imagePath = `/uploads/${product.photos[0].filePath.replace(/\\/g, "/")}`;
+    } else if (product.frontPhotoUrl) {
+        // Запасной вариант, если массив пуст, но ссылка есть
+        imagePath = `/uploads/${product.frontPhotoUrl}`;
+    }
 
     const price =
         product.prices && product.prices.length > 0

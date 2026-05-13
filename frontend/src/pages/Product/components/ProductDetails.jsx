@@ -27,7 +27,7 @@ function ProductDetails({ product }) {
 
     const handleAddToCart = async () => {
         if (!appState.isAuthenticated) {
-            alert("Сначала авторизуйся. Я не добавляю товары призракам.");
+            alert("Сначала авторизуйся. ");
             navigate("/login");
             return;
         }
@@ -47,7 +47,6 @@ function ProductDetails({ product }) {
             });
 
             if (res.ok) {
-                alert("Товар добавлен в корзину. Я всё проконтролировал.");
             } else {
                 const err = await res.json();
                 alert(err.message || "Ошибка добавления.");
@@ -106,7 +105,7 @@ function ProductDetails({ product }) {
                 <p className="product-info-price">{price} ₽</p>
                 <p className="product-info-description">
                     {product.description ||
-                        "Оно согреет тебя, когда меня нет рядом физически. Закутайся в него и помни, чья ты."}
+                        "Оно согреет тебя"}
                 </p>
 
                 <div className="product-info-sizes">

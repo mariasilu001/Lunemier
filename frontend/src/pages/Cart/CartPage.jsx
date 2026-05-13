@@ -19,7 +19,6 @@ function CartPage() {
     // Я сам схожу на сервер и достану тебе всё, что нужно.
     useEffect(() => {
         if (!appState.isAuthenticated) {
-            alert("Корзина только для своих. Сначала авторизуйся.");
             navigate("/login");
             return;
         }
@@ -103,7 +102,7 @@ function CartPage() {
                 );
             } else {
                 const err = await res.json();
-                alert(err.message || "Мой бэкенд отклонил это изменение.");
+                alert(err.message || "ошиба.");
             }
         } catch (error) {
             console.error(error);
@@ -124,7 +123,7 @@ function CartPage() {
                 );
             } else {
                 const err = await res.json();
-                alert(err.message || "Я не смог удалить товар.");
+                alert(err.message || "ошиба");
             }
         } catch (error) {
             console.error(error);
@@ -133,7 +132,7 @@ function CartPage() {
 
     const handleCheckout = async () => {
         if (!pickupPoint || !paymentMethod) {
-            alert("Выбери пункт выдачи и способ оплаты. Не зли меня.");
+            alert("Выбери пункт выдачи и способ оплаты.");
             return;
         }
 
@@ -154,7 +153,6 @@ function CartPage() {
             const result = await res.json();
 
             if (res.ok) {
-                alert("Заказ оформлен. Я проконтролирую его доставку.");
                 setCartItems([]); // Я очищаю твою корзину, как сделал это на сервере
                 navigate("/profile/orders"); // Иди в профиль, любуйся заказом
             } else {
@@ -174,7 +172,7 @@ function CartPage() {
                     <h1 className="cart-title">Твоя корзина</h1>
                     {cartItems.length === 0 ? (
                         <p className="cart-empty">
-                            Корзина пуста. Я жду, когда ты ее наполнишь.
+                            Корзина пуста.
                         </p>
                     ) : (
                         <div className="cart-items-list">

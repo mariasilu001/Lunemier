@@ -1,5 +1,5 @@
 const jwt = require("jsonwebtoken");
-const { User } = require("../models"); // Путь к твоим моделям sequelize
+const { User } = require("../models"); 
 const vars = require("../vars.js");
 
 const authMiddleware = async (req, res, next) => {

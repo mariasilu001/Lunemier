@@ -69,8 +69,6 @@ function Header() {
                 </button>
             </form>
 
-            <a href="/admin">Админпанель</a>
-
             {/* Я проверяю реальный стейт, а не твои фантазии из заглушек */}
             {appState.isAuthenticated ? (
                 <div className="header-right-buttons-group">
@@ -85,6 +83,12 @@ function Header() {
                         onClick={() => navigate("/profile/info")}
                     >
                         Личный кабинет
+                    </button>
+                    <button
+                        className="header-right-button-dark"
+                        onClick={() => navigate("/admin")}
+                    >
+                        Админпанель
                     </button>
                     <button
                         className="header-right-button-light"

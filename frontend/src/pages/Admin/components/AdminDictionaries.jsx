@@ -91,7 +91,7 @@ function AdminDictionaries() {
                 fetchData(); // Сервер удалил - фронт обновляется
             } else {
                 const err = await res.json();
-                alert(err.message || "Я не смог удалить это.");
+                alert(err.message || "Ошибка сервера");
             }
         } catch (error) {
             console.error(error);
@@ -299,7 +299,7 @@ function AdminDictionaries() {
                 </table>
                 {currentData.length === 0 && (
                     <p className="admin-dict-empty">
-                        Таблица пуста. Заполни ее.
+                        Таблица пуста.
                     </p>
                 )}
             </div>

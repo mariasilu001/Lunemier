@@ -113,7 +113,7 @@ function AdminProductModal({ isOpen, onClose, productToEdit }) {
         e.preventDefault();
 
         if (!formData.name) {
-            alert("Имя товара обязательно. Не зли меня.");
+            alert("Имя товара обязательно.");
             return;
         }
 
@@ -147,13 +147,12 @@ function AdminProductModal({ isOpen, onClose, productToEdit }) {
             });
 
             if (res.ok) {
-                alert("Товар сохранен в моей базе. Все прошло идеально.");
                 onClose(true); // Сообщаем родителю, что нужно обновить список
             } else {
                 const err = await res.json();
                 alert(
                     err.message ||
-                        "Ошибка сохранения. Мой сервер отклонил запрос.",
+                        "Ошибка сохранения",
                 );
             }
         } catch (error) {

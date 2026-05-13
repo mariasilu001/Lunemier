@@ -76,7 +76,7 @@ function AdminUsers() {
     return (
         <section className="admin-users-root">
             <h2 className="admin-users-header">Управление пользователями</h2>
-            <p className="admin-users-subtitle">Всего пользователей под контролем: {users.length}</p>
+            <p className="admin-users-subtitle">Всего пользователей: {users.length}</p>
 
             <div className="admin-users-table-wrapper">
                 <table className="admin-users-table">
