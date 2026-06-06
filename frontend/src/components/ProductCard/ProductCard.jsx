@@ -1,73 +1,112 @@
-import React, { useContext } from "react";
+import React, { useContext, useState, useEffect } from "react";
 import { AppStateContext } from "../../App";
+import { GlobalContext } from "../../GlobalContext";
 import "./product-card-styles.css";
 import { useNavigate } from "react-router-dom";
 
 function ProductCard({ product, isBaseMode = false }) {
     const navigate = useNavigate();
     const { appState } = useContext(AppStateContext);
+    const { reviews, users, setUsers, products } = useContext(GlobalContext);
+    if (!reviews || !users || !setUsers || !products) {
+        return null;
+    }
 
-    const handleAddToCart = async (e) => {
-        e.preventDefault();
-        e.stopPropagation();
+    const [imagePath, setImagePath] = useState(
+        "https://i.pinimg.com/736x/81/eb/7a/81eb7a8dd4bbd4720ad2ed935b4d3c4b.jpg",
+    );
 
-        if (!appState.isAuthenticated) {
-            navigate("/login");
-            return;
+    useEffect(() => {
+        let objectUrl = null;
+
+        if (product.photos[0].file_path) {
+            objectUrl = URL.createObjectURL(product.photos[0].file_path);
+            setImagePath(objectUrl);
         }
 
-        try {
-            const token = localStorage.getItem("token");
-            const res = await fetch("/api/me/cart", {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    Authorization: `Bearer ${token}`,
-                },
-                body: JSON.stringify({
-                    productId: product.productId,
-                    quantity: 1,
-                }),
-            });
-
-            if (res.ok) {
-            } else {
-                const err = await res.json();
-                alert(err.message || "Я не смог добавить товар.");
+        // Функция очистки (return в useEffect) срабатывает, когда комплнент исчезает с экрана.
+        return () => {
+            if (objectUrl) {
+                URL.revokeObjectURL(objectUrl);
             }
-        } catch (error) {
-            console.error("Ошибка добавления в корзину:", error);
-        }
-    };
+        };
+    }, [product]);
 
     const handleClick = () => {
         if (isBaseMode) {
-            // Если мы в режиме выбора основы, я отправляю тебя прямо в редактор с ID основы
-            navigate(`/customizator/redactor?baseId=${product.productId}`);
+            navigate(`/customizator/redactor?baseId=${product._id}`);
         } else {
-            navigate(`/p/${product.productId}`);
+            navigate(`/p/${product._id}`);
         }
     };
-
-    let imagePath = "https://i.pinimg.com/736x/81/eb/7a/81eb7a8dd4bbd4720ad2ed935b4d3c4b.jpg";
-
-    if (product.isBase && product.frontPhotoUrl) {
-        // Я сказал: если товар базовый, рендерим строго фото спереди
-        imagePath = `/uploads/${product.frontPhotoUrl}`;
-    } else if (product.photos && product.photos.length > 0) {
-        // Для всех остальных обычных товаров берем первую фотку из массива
-        imagePath = `/uploads/${product.photos[0].filePath.replace(/\\/g, "/")}`;
-    } else if (product.frontPhotoUrl) {
-        // Запасной вариант, если массив пуст, но ссылка есть
-        imagePath = `/uploads/${product.frontPhotoUrl}`;
-    }
 
     const price =
         product.prices && product.prices.length > 0
             ? product.prices[0].price
             : "Нет цены";
 
-    const rating = product.averageRating || "0.0";
+    const calculateRating = () => {
+        const productRevs = reviews.filter((r) => r.product_id === product._id);
+
+        if (productRevs.length === 0) return 0;
+
+        const totalRating = productRevs.reduce((acc, r) => acc + r.rating, 0);
+
+        return totalRating / productRevs.length;
+    };
+
+    const rating = calculateRating();
+
+    const handleAddToCart = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+
+        const userId = Number(localStorage.getItem("user_id"));
+        if (!userId) {
+            navigate("/login");
+            return;
+        }
+
+        const currentUser = users.find((u) => u._id === userId);
+
+        const isExistingCartItem = currentUser.cart_items.find(
+            (i) => i.product_id === product._id,
+        );
+
+        if (isExistingCartItem) {
+            setUsers((prev) => {
+                const newCartItems = currentUser.cart_items.map((i) => {
+                    if (i.product_id === product._id) {
+                        const newQuantity = i.quantity + 1;
+                        return { ...i, quantity: newQuantity };
+                    }
+                    return { ...i };
+                });
+
+                const newData = prev.map((u) => {
+                    if (u._id === currentUser._id) {
+                        return { ...u, cart_items: newCartItems };
+                    }
+                    return u;
+                });
+                return newData;
+            });
+        } else {
+            setUsers((prev) => {
+                return prev.map((u) => {
+                    if (u._id === currentUser._id) {
+                        const newItem = {
+                            product_id: product._id,
+                            quantity: 1,
+                            created_at: new Date(),
+                        };
+                        return { ...u, cart_items: [...u.cart_items, newItem] };
+                    }
+                    return u;
+                });
+            });
+        }
+    };
 
     return (
         <article className="product-card-root">
@@ -82,7 +121,7 @@ function ProductCard({ product, isBaseMode = false }) {
                 <p className="product-card-name">{product.name}</p>
                 <div className="product-card-price-rating-group">
                     <p className="product-card-price">{price} ₽</p>
-                    {!isBaseMode && (
+                    {isBaseMode && (
                         <div className="product-card-rating-block">
                             <span className="product-card-rating-star-wrapper">
                                 <svg

@@ -1,54 +1,37 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useContext } from "react";
+import { GlobalContext } from "../../../GlobalContext"; // НАША БАЗА
 import AdminOrderModal from "./AdminOrderModal";
 import "../styles/admin-orders-styles.css";
 
 function AdminOrders() {
-    const [orders, setOrders] = useState([]);
+    // Вытягиваем заказы, пользователей и функцию обновления из памяти
+    const { orders, setOrders, users } = useContext(GlobalContext);
+
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [selectedOrder, setSelectedOrder] = useState(null);
 
-    useEffect(() => {
-        const token = localStorage.getItem("token");
-        fetch("/api/admin/orders", {
-            headers: { Authorization: `Bearer ${token}` },
-        })
-            .then((res) => res.json())
-            .then((data) => {
-                if (data.orders) setOrders(data.orders);
-            })
-            .catch((err) => console.error("Ошибка загрузки заказов:", err));
-    }, []);
+    // Жесткий барьер загрузки
+    if (!orders || !users) return null;
 
     const handleOpenDetails = (order) => {
         setSelectedOrder(order);
         setIsModalOpen(true);
     };
 
-    const handleStatusChange = async (orderId, newStatus) => {
+    // ЛОКАЛЬНОЕ ОБНОВЛЕНИЕ СТАТУСА
+    const handleStatusChange = (orderId, newStatus) => {
         try {
-            const token = localStorage.getItem("token");
-            const res = await fetch(`/api/admin/orders/${orderId}/status`, {
-                method: "PUT",
-                headers: {
-                    "Content-Type": "application/json",
-                    Authorization: `Bearer ${token}`,
-                },
-                body: JSON.stringify({ status: newStatus }),
-            });
-
-            if (res.ok) {
-                // Если я разрешил статус на бэкенде, обновляю список
-                setOrders((prev) =>
-                    prev.map((o) =>
-                        o.order_id === orderId
-                            ? { ...o, status: newStatus }
-                            : o,
-                    ),
-                );
-            } else {
-                const err = await res.json();
-                alert(err.message || "Ошибка обновления статуса.");
-            }
+            setOrders((prev) =>
+                prev.map((o) =>
+                    o._id === orderId
+                        ? {
+                              ...o,
+                              status: newStatus,
+                              updated_at: new Date().toISOString(),
+                          }
+                        : o,
+                ),
+            );
         } catch (error) {
             console.error(error);
         }
@@ -56,13 +39,36 @@ function AdminOrders() {
 
     const getStatusBadge = (status) => {
         let badgeClass = "badge-default";
-        if (status === "Создан") badgeClass = "badge-created";
-        if (status === "Собирается") badgeClass = "badge-processing";
+        if (status === "Создан" || status === "Новый")
+            badgeClass = "badge-created";
+        if (status === "Собирается" || status === "paid")
+            badgeClass = "badge-processing";
         if (status === "Готов к выдаче") badgeClass = "badge-ready";
-        if (status === "Получен") badgeClass = "badge-delivered";
-        if (status === "Отменен") badgeClass = "badge-cancelled";
+        if (
+            status === "Получен" ||
+            status === "Завершен" ||
+            status === "delivered"
+        )
+            badgeClass = "badge-delivered";
+        if (status === "Отменен" || status === "cancelled")
+            badgeClass = "badge-cancelled";
 
-        return <span className={`badge ${badgeClass}`}>{status}</span>;
+        // Перевод для красивого отображения (если в базе английский статус)
+        const displayStatus =
+            status === "paid"
+                ? "Собирается"
+                : status === "delivered"
+                  ? "Получен"
+                  : status === "cancelled"
+                    ? "Отменен"
+                    : status;
+
+        return <span className={`badge ${badgeClass}`}>{displayStatus}</span>;
+    };
+
+    const formatDate = (dateStr) => {
+        if (!dateStr) return "";
+        return new Date(dateStr).toLocaleDateString("ru-RU");
     };
 
     return (
@@ -89,38 +95,57 @@ function AdminOrders() {
                         </tr>
                     </thead>
                     <tbody>
-                        {orders.map((order) => (
-                            <tr key={order.order_id}>
-                                <td className="font-monospace">
-                                    #{order.order_id}
-                                </td>
-                                <td className="font-bold">{order.username}</td>
-                                <td>{order.order_date}</td>
-                                <td>{getStatusBadge(order.status)}</td>
-                                <td className="font-bold">
-                                    {order.total_amount} ₽
-                                </td>
-                                <td className="actions-cell">
-                                    <button
-                                        className="admin-btn-text"
-                                        onClick={() => handleOpenDetails(order)}
-                                    >
-                                        Детали / Изменить
-                                    </button>
-                                </td>
-                            </tr>
-                        ))}
+                        {/* Сортируем заказы от свежих к старым перед отрисовкой */}
+                        {[...orders]
+                            .sort(
+                                (a, b) =>
+                                    new Date(b.created_at) -
+                                    new Date(a.created_at),
+                            )
+                            .map((order) => {
+                                // Находим юзера по ID, чтобы вывести его username
+                                const buyer = users.find(
+                                    (u) => u._id === order.user_id,
+                                );
+
+                                return (
+                                    <tr key={order._id}>
+                                        <td className="font-monospace">
+                                            #{order._id}
+                                        </td>
+                                        <td className="font-bold">
+                                            {buyer ? buyer.username : "Удален"}
+                                        </td>
+                                        <td>{formatDate(order.created_at)}</td>
+                                        <td>{getStatusBadge(order.status)}</td>
+                                        <td className="font-bold">
+                                            {order.total_amount} ₽
+                                        </td>
+                                        <td className="actions-cell">
+                                            <button
+                                                className="admin-btn-text"
+                                                onClick={() =>
+                                                    handleOpenDetails(order)
+                                                }
+                                            >
+                                                Детали / Изменить
+                                            </button>
+                                        </td>
+                                    </tr>
+                                );
+                            })}
                     </tbody>
                 </table>
             </div>
 
-            <AdminOrderModal
-                isOpen={isModalOpen}
-                onClose={() => setIsModalOpen(false)}
-                order={selectedOrder}
-                // Прокидываем функцию, чтобы модалка могла менять статус
-                onStatusChange={handleStatusChange}
-            />
+            {isModalOpen && (
+                <AdminOrderModal
+                    isOpen={isModalOpen}
+                    onClose={() => setIsModalOpen(false)}
+                    order={selectedOrder}
+                    onStatusChange={handleStatusChange}
+                />
+            )}
         </section>
     );
 }

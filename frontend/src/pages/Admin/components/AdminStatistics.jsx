@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useContext } from "react";
+import { GlobalContext } from "../../../GlobalContext"; // ПОДКЛЮЧАЕМ НАШУ БАЗУ
 import {
     AreaChart,
     Area,
@@ -15,124 +16,112 @@ import {
 import "../styles/admin-statistics-styles.css";
 
 function AdminStatistics() {
-    const [stats, setStats] = useState({
-        revenueData: [],
-        totalRevenue30d: 0,
-        newUsers30d: 0,
-        totalUsers: 0,
-        productDistribution: [],
-        totalReviews: 0,
-        avgRating: 0,
-    });
-    const [loading, setLoading] = useState(true);
+    // 1. Достаем все нужные таблицы из нашей базы
+    const { orders, users, products, reviews } = useContext(GlobalContext);
 
+    const [stats, setStats] = useState(null);
+
+    // 2. Мощный useEffect, который сам пересчитает стату при любом изменении в базе
     useEffect(() => {
-        const token = localStorage.getItem("token");
-        const headers = { Authorization: `Bearer ${token}` };
+        // Жесткий барьер: ждем, пока IndexedDB выгрузит всё в оперативную память
+        if (!orders || !users || !products || !reviews) return;
 
-        // Я приказываю браузеру тянуть все данные одновременно
-        Promise.all([
-            fetch("/api/admin/orders", { headers }).then((res) => res.json()),
-            fetch("/api/admin/users", { headers }).then((res) => res.json()),
-            fetch("/api/admin/products", { headers }).then((res) => res.json()),
-            fetch("/api/admin/moderation/reviews", { headers }).then((res) =>
-                res.json(),
-            ),
-        ])
-            .then(([ordersData, usersData, productsData, reviewsData]) => {
-                const orders = ordersData.orders || [];
-                const users = usersData.users || [];
-                const products = productsData.products || [];
-                const reviews = reviewsData.reviews || [];
+        try {
+            // Агрегация выручки за последние 30 дней
+            const last30Days = [];
+            const revenueMap = {};
 
-                // 1. Агрегация выручки за последние 30 дней
-                const last30Days = [];
-                const revenueMap = {};
+            for (let i = 29; i >= 0; i--) {
+                const d = new Date();
+                d.setDate(d.getDate() - i);
+                const dateStr = d.toLocaleDateString("ru-RU"); // Формат DD.MM.YYYY
+                last30Days.push(dateStr);
+                revenueMap[dateStr] = 0;
+            }
 
-                for (let i = 29; i >= 0; i--) {
-                    const d = new Date();
-                    d.setDate(d.getDate() - i);
-                    const dateStr = d.toLocaleDateString("ru-RU"); // Формат DD.MM.YYYY
-                    last30Days.push(dateStr);
-                    revenueMap[dateStr] = 0;
+            let totalRev = 0;
+            orders.forEach((order) => {
+                // ЗАЩИТА: Не считаем отмененные заказы в выручку!
+                if (order.status === "Отменен" || order.status === "cancelled")
+                    return;
+
+                // Превращаем формат БД "2026-05-30T16:00:00Z" в "30.05.2026"
+                const orderDate = new Date(order.created_at).toLocaleDateString(
+                    "ru-RU",
+                );
+
+                if (revenueMap[orderDate] !== undefined) {
+                    const amount = parseFloat(order.total_amount);
+                    revenueMap[orderDate] += amount;
+                    totalRev += amount;
                 }
-
-                let totalRev = 0;
-                orders.forEach((order) => {
-                    // Мой сервер отдает order_date в формате DD.MM.YYYY
-                    if (revenueMap[order.order_date] !== undefined) {
-                        const amount = parseFloat(order.total_amount);
-                        revenueMap[order.order_date] += amount;
-                        totalRev += amount;
-                    }
-                });
-
-                const revenueData = last30Days.map((date) => ({
-                    date: date.substring(0, 5), // Оставляем только DD.MM для красоты
-                    Выручка: revenueMap[date],
-                }));
-
-                // 2. Агрегация пользователей
-                const thirtyDaysAgo = new Date();
-                thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-
-                const newUsers = users.filter(
-                    (user) => new Date(user.createdAt) >= thirtyDaysAgo,
-                ).length;
-
-                // 3. Агрегация товаров (Распределение)
-                let baseCount = 0;
-                let customCount = 0;
-                let regularCount = 0;
-
-                products.forEach((p) => {
-                    if (p.isBase) baseCount++;
-                    else if (p.isCustom) customCount++;
-                    else regularCount++;
-                });
-
-                const productDistribution = [
-                    { name: "Основы", value: baseCount },
-                    { name: "Кастомные", value: customCount },
-                    { name: "Обычные", value: regularCount },
-                ];
-
-                // 4. Агрегация отзывов
-                const totalReviews = reviews.length;
-                const avgRating =
-                    totalReviews > 0
-                        ? (
-                              reviews.reduce((sum, r) => sum + r.rating, 0) /
-                              totalReviews
-                          ).toFixed(1)
-                        : 0;
-
-                // Сохраняем мои идеальные расчеты в стейт
-                setStats({
-                    revenueData,
-                    totalRevenue30d: totalRev,
-                    newUsers30d: newUsers,
-                    totalUsers: users.length,
-                    productDistribution,
-                    totalReviews,
-                    avgRating,
-                });
-                setLoading(false);
-            })
-            .catch((err) => {
-                console.error("Ошибка при агрегации данных:", err);
-                setLoading(false);
             });
-    }, []);
 
-    // Цвета из нашей палитры
+            const revenueData = last30Days.map((date) => ({
+                date: date.substring(0, 5), // Оставляем DD.MM
+                Выручка: revenueMap[date],
+            }));
+
+            // Агрегация пользователей
+            const thirtyDaysAgo = new Date();
+            thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+            const newUsers = users.filter(
+                // Исправлен ключ на created_at
+                (user) => new Date(user.created_at) >= thirtyDaysAgo,
+            ).length;
+
+            // Агрегация товаров
+            let baseCount = 0;
+            let customCount = 0;
+            let regularCount = 0;
+
+            products.forEach((p) => {
+                // Исправлены ключи на is_base и is_custom
+                if (p.is_base) baseCount++;
+                else if (p.is_custom) customCount++;
+                else regularCount++;
+            });
+
+            const productDistribution = [
+                { name: "Основы", value: baseCount },
+                { name: "Кастомные", value: customCount },
+                { name: "Обычные", value: regularCount },
+            ];
+
+            // Агрегация отзывов
+            const totalReviews = reviews.length;
+            const avgRating =
+                totalReviews > 0
+                    ? (
+                          reviews.reduce((sum, r) => sum + r.rating, 0) /
+                          totalReviews
+                      ).toFixed(1)
+                    : 0;
+
+            // Сохраняем результат
+            setStats({
+                revenueData,
+                totalRevenue30d: totalRev,
+                newUsers30d: newUsers,
+                totalUsers: users.length,
+                productDistribution,
+                totalReviews,
+                avgRating,
+            });
+        } catch (err) {
+            console.error("Ошибка при локальной агрегации данных:", err);
+        }
+    }, [orders, users, products, reviews]); // Массив зависимостей - вся база!
+
     const COLORS = ["#594545", "#815b5b", "#9e7676"];
 
-    if (loading) {
+    // Если данные еще вычисляются
+    if (!stats) {
         return (
             <section className="admin-statistics-root loading">
                 <h2 style={{ color: "var(--color-dark-brown)" }}>
-                    Загрузка
+                    Анализирую базу данных...
                 </h2>
             </section>
         );

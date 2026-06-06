@@ -1,43 +1,36 @@
-import React, { useContext, useEffect, useState } from "react";
+import React, { useContext } from "react";
 import { AppStateContext } from "../../App";
+import { GlobalContext } from "../../GlobalContext";
 import "./product-grid-styles.css";
 import ProductCard from "../ProductCard/ProductCard";
 
 function ProductGrid({ isBaseMode = false }) {
     const { appState } = useContext(AppStateContext);
-    const [products, setProducts] = useState([]);
+    const { products, categories } = useContext(GlobalContext);
 
-    useEffect(() => {
-        const params = new URLSearchParams();
+    if (!products || !categories) {
+        return null;
+    }
 
-        // Я подчиняю выдачу твоей выбранной категории
-        if (appState.selectedCategoryId) {
-            params.append("categoryId", appState.selectedCategoryId);
-        }
+    const activeCategory = categories.find((c) => c.is_active === true);
+    const activeCategoryId = activeCategory ? activeCategory._id : null;
 
-        // Если мы выбираем основу, я говорю бэкенду отдать только базы
-        if (isBaseMode) {
-            params.append("isBase", "true");
-        }
+    const filteredProducts = products.filter((p) => {
+        const matchesCategory = activeCategoryId ? p.category_id === activeCategoryId : true;
 
-        const url = `/api/products?${params.toString()}`;
+        const matchesBaseMode = isBaseMode ? p.is_base === true : true;
 
-        fetch(url)
-            .then((res) => res.json())
-            .then((data) => {
-                if (data.products) {
-                    setProducts(data.products);
-                }
-            })
-            .catch((err) => console.error("Ошибка загрузки товаров:", err));
-    }, [appState.selectedCategoryId, isBaseMode]);
+        const matchesCustom = p.is_custom === false
+
+        return matchesCategory && matchesBaseMode && matchesCustom;
+    });
 
     return (
         <section className="product-grid-root">
-            {products.length > 0 ? (
-                products.map((product) => (
+            {filteredProducts.length > 0 ? (
+                filteredProducts.map((product) => (
                     <ProductCard
-                        key={product.productId}
+                        key={product._id}
                         product={product}
                         isBaseMode={isBaseMode}
                     />

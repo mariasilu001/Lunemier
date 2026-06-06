@@ -1,31 +1,22 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useContext } from "react";
+import { GlobalContext } from "../../../GlobalContext"; // НАША БАЗА
 import AdminPriceModal from "./AdminPriceModal";
 import "../styles/admin-prices-styles.css";
 
 function AdminPrices() {
-    const [products, setProducts] = useState([]);
+    // Вытягиваем товары напрямую из памяти
+    const { products } = useContext(GlobalContext);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [selectedProduct, setSelectedProduct] = useState(null);
 
-    const fetchPrices = () => {
-        const token = localStorage.getItem("token");
-        fetch("/api/admin/prices", {
-            headers: { Authorization: `Bearer ${token}` },
-        })
-            .then((res) => res.json())
-            .then((data) => {
-                if (data.products) setProducts(data.products);
-            })
-            .catch((err) => console.error("Ошибка загрузки цен:", err));
-    };
-
-    useEffect(() => {
-        fetchPrices();
-    }, []);
+    // Жесткий барьер
+    if (!products) return null;
 
     const getActivePrice = (product) => {
         if (product.prices && product.prices.length > 0) {
-            return product.prices[0].price; // Бэкенд отдает только активную
+            // Ищем именно активную цену, а не просто первую попавшуюся
+            const activePrice = product.prices.find(p => p.is_active);
+            if (activePrice) return activePrice.price;
         }
         return "Не задана";
     };
@@ -35,9 +26,8 @@ function AdminPrices() {
         setIsModalOpen(true);
     };
 
-    const handleModalClose = (wasUpdated) => {
+    const handleModalClose = () => {
         setIsModalOpen(false);
-        if (wasUpdated) fetchPrices(); // Обновляем список, если цена изменилась
     };
 
     const formatDate = (dateStr) => {
@@ -69,12 +59,12 @@ function AdminPrices() {
                     </thead>
                     <tbody>
                         {products.map((product) => (
-                            <tr key={product.productId}>
+                            <tr key={product._id}>
                                 <td className="font-monospace">
-                                    #{product.productId}
+                                    #{product._id}
                                 </td>
                                 <td className="font-bold">{product.name}</td>
-                                <td>{formatDate(product.createdAt)}</td>
+                                <td>{formatDate(product.created_at)}</td>
                                 <td className="price-cell">
                                     <span className="current-price-value">
                                         {getActivePrice(product)} ₽
@@ -83,9 +73,7 @@ function AdminPrices() {
                                 <td>
                                     <button
                                         className="admin-btn-details"
-                                        onClick={() =>
-                                            handleOpenDetails(product)
-                                        }
+                                        onClick={() => handleOpenDetails(product)}
                                     >
                                         История / Изменить
                                     </button>

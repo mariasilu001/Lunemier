@@ -1,12 +1,18 @@
 import React, { useContext, useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { AppStateContext } from "../../../App";
+import { GlobalContext } from "../../../GlobalContext";
 import "../styles/latest-order-styles.css";
 
 function LatestOrder() {
+    
     const { appState } = useContext(AppStateContext);
-    const [latestItem, setLatestItem] = useState(null);
+    const { orders, reviews, setReviews, products } = useContext(GlobalContext);
+
     const [isSubmitted, setIsSubmitted] = useState(false);
+    const [imagePath, setImagePath] = useState(
+        "https://i.pinimg.com/736x/81/eb/7a/81eb7a8dd4bbd4720ad2ed935b4d3c4b.jpg",
+    );
 
     const {
         register,
@@ -16,84 +22,84 @@ function LatestOrder() {
         setValue,
         reset,
     } = useForm({
-        defaultValues: {
-            rating: 0,
-        },
+        defaultValues: { rating: 0 },
     });
 
     const currentRating = watch("rating");
 
+    const userId = Number(localStorage.getItem("user_id"));
+
+    const latestOrder = orders
+        ? orders.find((o) => o.user_id === userId)
+        : null;
+
+    const productId =
+        latestOrder && latestOrder.order_items
+            ? latestOrder.order_items[0].product_id
+            : null;
+
+    const latestItem =
+        products && productId
+            ? products.find((p) => p._id === productId)
+            : null;
+
+    const existingReview =
+        reviews && latestItem
+            ? reviews.find(
+                  (r) =>
+                      r.user_id === userId && r.product_id === latestItem._id,
+              )
+            : null;
+
     useEffect(() => {
-        // Я лезу в твои заказы, только если ты авторизована.
-        if (appState.isAuthenticated) {
-            const token = localStorage.getItem("token");
-            fetch("/api/me/orders", {
-                headers: { Authorization: `Bearer ${token}` },
-            })
-                .then((res) => res.json())
-                .then((data) => {
-                    if (data.orders && data.orders.length > 0) {
-                        const firstOrder = data.orders[0];
-                        if (
-                            firstOrder.orderItems &&
-                            firstOrder.orderItems.length > 0
-                        ) {
-                            // Я беру самый первый товар из твоего последнего заказа.
-                            setLatestItem(firstOrder.orderItems[0]);
-                        }
-                    }
-                })
-                .catch((err) =>
-                    console.error("Я не смог загрузить твои заказы:", err),
-                );
+        let objectUrl = null;
+
+        
+        if (
+            latestItem &&
+            latestItem.photos &&
+            latestItem.photos.length > 0 &&
+            latestItem.photos[0].file_path
+        ) {
+            objectUrl = URL.createObjectURL(latestItem.photos[0].file_path);
+            setImagePath(objectUrl);
         }
-    }, [appState.isAuthenticated]);
 
-    // Если ты не залогинена, или у тебя нет заказов, или ты уже оставила отзыв здесь — я прячу этот блок.
-    if (!appState.isAuthenticated || !latestItem || isSubmitted) {
-        return null;
-    }
+        return () => {
+            if (objectUrl) {
+                URL.revokeObjectURL(objectUrl);
+            }
+        };
+    }, [latestItem]); 
 
-    const onSubmit = async (data) => {
+    if (!orders || !products || !reviews) return null;
+    if (!userId || !latestOrder || !latestItem) return null;
+    if (existingReview || isSubmitted) return null;
+
+    const onSubmit = (data) => {
         if (data.rating === 0) {
-            alert("Поставь оценку. Я не принимаю пустые звезды.");
+            alert("Поставьте оценку больше нуля");
             return;
         }
 
-        try {
-            const token = localStorage.getItem("token");
-            const formData = new FormData();
-            formData.append("productId", latestItem.product.productId);
-            formData.append("rating", data.rating);
-            formData.append("reviewText", data.reviewText);
+        setReviews((prev) => {
+            const newReview = {
+                _id: Date.now(),
+                user_id: userId,
+                product_id: latestItem._id,
+                rating: data.rating,
+                review_text: data.reviewText,
+                created_at: new Date().toISOString(),
+                updated_at: null,
+                photos: [],
+            };
+            return [...prev, newReview];
+        });
 
-            const res = await fetch("/api/me/reviews", {
-                method: "POST",
-                headers: {
-                    Authorization: `Bearer ${token}`,
-                },
-                body: formData,
-            });
-
-            if (res.ok) {
-                setIsSubmitted(true);
-                reset();
-                alert("Твой отзыв в моей базе. Я всё сохранил.");
-            } else {
-                const errData = await res.json();
-                alert(errData.message || "Ошибка отправки отзыва.");
-            }
-        } catch (error) {
-            console.error(error);
-        }
+        setIsSubmitted(true);
     };
 
-    const product = latestItem.product;
-    const imagePath =
-        product.photos && product.photos.length > 0
-            ? `/${product.photos[0].filePath.replace(/\\/g, "/")}`
-            : "https://i.pinimg.com/736x/81/eb/7a/81eb7a8dd4bbd4720ad2ed935b4d3c4b.jpg";
-
+    // === 8. РЕНДЕР ===
     return (
         <article className="latest-order-root">
             <section className="latest-order-left">
@@ -109,17 +115,15 @@ function LatestOrder() {
                         />
                     </div>
                     <p className="latest-order-product-card-name">
-                        {product.name}
+                        {latestItem.name}
                     </p>
                     <p className="latest-order-product-card-description">
-                        Оно согреет тебя, когда меня нет рядом физически.
-                        Закутайся в него и помни, чья ты.
+                        {latestItem.description}
                     </p>
                     <div className="latest-order-product-card-price-rating-group">
                         <p className="latest-order-product-card-price">
-                            {latestItem.historicalPrice} ₽
+                            {latestItem.prices[0].price} ₽
                         </p>
-                        {/* Оценка скрыта, если ее нет */}
                     </div>
                 </div>
             </section>

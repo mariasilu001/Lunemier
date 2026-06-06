@@ -1,27 +1,15 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useContext } from "react";
+import { GlobalContext } from "../../../GlobalContext"; // НАША БАЗА
 import AdminProductModal from "./AdminProductModal";
 import "../styles/admin-products-styles.css";
 
 function AdminProducts() {
-    const [products, setProducts] = useState([]);
+    const { products, setProducts, categories } = useContext(GlobalContext);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [productToEdit, setProductToEdit] = useState(null);
 
-    const fetchProducts = () => {
-        const token = localStorage.getItem("token");
-        fetch("/api/admin/products", {
-            headers: { Authorization: `Bearer ${token}` },
-        })
-            .then((res) => res.json())
-            .then((data) => {
-                if (data.products) setProducts(data.products);
-            })
-            .catch((err) => console.error("Я не смог загрузить товары:", err));
-    };
-
-    useEffect(() => {
-        fetchProducts();
-    }, []);
+    // Жесткий барьер загрузки базы
+    if (!products || !categories) return null;
 
     const handleAddClick = () => {
         setProductToEdit(null);
@@ -33,43 +21,25 @@ function AdminProducts() {
         setIsModalOpen(true);
     };
 
-    const handleDeleteClick = async (productId) => {
-        if (
-            !window.confirm(
-                "Отправить этот товар в архив?",
-            )
-        )
-            return;
+    const handleDeleteClick = (productId) => {
+        if (!window.confirm("Отправить этот товар в архив?")) return;
 
         try {
-            const token = localStorage.getItem("token");
-            const res = await fetch(`/api/admin/products/${productId}`, {
-                method: "DELETE",
-                headers: { Authorization: `Bearer ${token}` },
-            });
-
-            if (res.ok) {
-                // Если я заархивировал его на сервере, обновляем и тут.
-                setProducts((prev) =>
-                    prev.map((p) =>
-                        p.productId === productId
-                            ? { ...p, deletedAt: new Date().toISOString() }
-                            : p,
-                    ),
-                );
-            } else {
-                const err = await res.json();
-                alert(err.message || "Ошибка удаления");
-            }
+            // Переводим товар в архив прямо в памяти
+            setProducts((prev) =>
+                prev.map((p) =>
+                    p._id === productId
+                        ? { ...p, deleted_at: new Date().toISOString() }
+                        : p,
+                ),
+            );
         } catch (error) {
             console.error(error);
         }
     };
 
-    const handleModalClose = (wasUpdated) => {
+    const handleModalClose = () => {
         setIsModalOpen(false);
-        // Если что-то изменилось, я заставляю компонент перезапросить данные.
-        if (wasUpdated) fetchProducts();
     };
 
     const formatDate = (dateStr) => {
@@ -107,68 +77,77 @@ function AdminProducts() {
                         </tr>
                     </thead>
                     <tbody>
-                        {products.map((product) => (
-                            <tr
-                                key={product.productId}
-                                className={
-                                    product.deletedAt ? "banned-row" : ""
-                                }
-                            >
-                                <td className="font-monospace">
-                                    #{product.productId}
-                                </td>
-                                <td className="font-bold">{product.name}</td>
-                                <td>
-                                    {product.category?.name || "Без категории"}
-                                </td>
-                                <td>
-                                    <div className="admin-flags-group">
-                                        {product.isBase && (
-                                            <span className="badge badge-base">
-                                                Base
-                                            </span>
-                                        )}
-                                        {product.isCustom && (
-                                            <span className="badge badge-custom">
-                                                Custom
-                                            </span>
-                                        )}
-                                        {!product.isBase &&
-                                            !product.isCustom && (
-                                                <span className="badge badge-regular">
-                                                    Regular
+                        {products.map((product) => {
+                            // Связь: Ищем категорию по ID, чтобы вывести её имя
+                            const cat = categories.find(
+                                (c) => c._id === product.category_id,
+                            );
+
+                            return (
+                                <tr
+                                    key={product._id}
+                                    className={
+                                        product.deleted_at ? "banned-row" : ""
+                                    }
+                                >
+                                    <td className="font-monospace">
+                                        #{product._id}
+                                    </td>
+                                    <td className="font-bold">
+                                        {product.name}
+                                    </td>
+                                    <td>{cat ? cat.name : "Без категории"}</td>
+                                    <td>
+                                        <div className="admin-flags-group">
+                                            {product.is_base && (
+                                                <span className="badge badge-base">
+                                                    Base
                                                 </span>
                                             )}
-                                        {product.deletedAt && (
-                                            <span className="badge badge-cancelled">
-                                                Архив
-                                            </span>
-                                        )}
-                                    </div>
-                                </td>
-                                <td>{formatDate(product.createdAt)}</td>
-                                <td>
-                                    <button
-                                        className="admin-btn-text"
-                                        onClick={() => handleEditClick(product)}
-                                    >
-                                        Редактировать
-                                    </button>
-                                    {!product.deletedAt && (
+                                            {product.is_custom && (
+                                                <span className="badge badge-custom">
+                                                    Custom
+                                                </span>
+                                            )}
+                                            {!product.is_base &&
+                                                !product.is_custom && (
+                                                    <span className="badge badge-regular">
+                                                        Regular
+                                                    </span>
+                                                )}
+                                            {product.deleted_at && (
+                                                <span className="badge badge-cancelled">
+                                                    Архив
+                                                </span>
+                                            )}
+                                        </div>
+                                    </td>
+                                    <td>{formatDate(product.created_at)}</td>
+                                    <td>
                                         <button
-                                            className="admin-btn-text-delete"
+                                            className="admin-btn-text"
                                             onClick={() =>
-                                                handleDeleteClick(
-                                                    product.productId,
-                                                )
+                                                handleEditClick(product)
                                             }
                                         >
-                                            В архив
+                                            Редактировать
                                         </button>
-                                    )}
-                                </td>
-                            </tr>
-                        ))}
+                                        {!product.deleted_at && (
+                                            <button
+                                                className="admin-btn-text-delete"
+                                                onClick={() =>
+                                                    handleDeleteClick(
+                                                        product._id,
+                                                    )
+                                                }
+                                            >
+                                                В архив
+                                            </button>
+                                        )}
+                                    </td>
+                                </tr>
+                            );
+                        })}
                     </tbody>
                 </table>
             </div>

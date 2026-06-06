@@ -1,68 +1,56 @@
-import React, { useState, useEffect, useContext } from "react";
+import React, { useContext } from "react";
 import { AppStateContext } from "../../../App";
+import { GlobalContext } from "../../../GlobalContext"; // Подключаем нашу базу
 import "../styles/admin-users-styles.css";
 
 function AdminUsers() {
     const { appState } = useContext(AppStateContext);
-    const [users, setUsers] = useState([]);
+    const { users, setUsers } = useContext(GlobalContext); // Достаем пользователей из памяти
 
-    useEffect(() => {
-        // Забираю реальные данные из своей базы.
-        const token = localStorage.getItem("token");
-        fetch("/api/admin/users", {
-            headers: { Authorization: `Bearer ${token}` }
-        })
-            .then(res => res.json())
-            .then(data => {
-                if (data.users) setUsers(data.users);
-            })
-            .catch(err => console.error("Ошибка загрузки пользователей:", err));
-    }, []);
+    // Жесткий барьер загрузки
+    if (!users) return null;
 
-    const handleRoleChange = async (userId, newRole) => {
+    // Определяем ID текущего админа, чтобы не дать ему забанить самого себя
+    const currentUserId = Number(localStorage.getItem("user_id"));
+
+    // === ЛОКАЛЬНАЯ СМЕНА РОЛИ ===
+    const handleRoleChange = (userId, newRole) => {
+        if (userId === currentUserId) {
+            alert("Ты не можешь изменить роль самой себе. Дисциплина.");
+            return;
+        }
         try {
-            const token = localStorage.getItem("token");
-            const res = await fetch(`/api/admin/users/${userId}/role`, {
-                method: "PUT",
-                headers: {
-                    "Content-Type": "application/json",
-                    Authorization: `Bearer ${token}`
-                },
-                body: JSON.stringify({ role: newRole })
-            });
-
-            if (res.ok) {
-                // Если я разрешил сменить роль на сервере, меняем и здесь.
-                setUsers(users.map(user => 
-                    user.userId === userId ? { ...user, role: newRole } : user
-                ));
-            } else {
-                const err = await res.json();
-                alert(err.message || "Я не позволил изменить роль.");
-            }
+            // Перебираем юзеров и меняем роль нужному
+            setUsers((prev) =>
+                prev.map((user) =>
+                    user._id === userId ? { ...user, role: newRole } : user,
+                ),
+            );
         } catch (error) {
             console.error(error);
         }
     };
 
-    const handleToggleBan = async (userId) => {
+    // === ЛОКАЛЬНАЯ БЛОКИРОВКА / РАЗБЛОКИРОВКА ===
+    const handleToggleBan = (userId) => {
+        if (userId === currentUserId) {
+            alert("Ты не можешь заблокировать саму себя.");
+            return;
+        }
         try {
-            const token = localStorage.getItem("token");
-            const res = await fetch(`/api/admin/users/${userId}/ban`, {
-                method: "PUT",
-                headers: { Authorization: `Bearer ${token}` }
-            });
-
-            if (res.ok) {
-                const data = await res.json();
-                // Мой бэкенд возвращает обновленного юзера с deletedAt
-                setUsers(users.map(user => 
-                    user.userId === userId ? data.user : user
-                ));
-            } else {
-                const err = await res.json();
-                alert(err.message || "Ошибка при изменении статуса блокировки.");
-            }
+            setUsers((prev) =>
+                prev.map((user) => {
+                    if (user._id === userId) {
+                        // Если deleted_at уже есть (забанен) -> ставим null (разбаниваем)
+                        // Если deleted_at нет -> ставим текущую дату (баним)
+                        const newDeletedAt = user.deleted_at
+                            ? null
+                            : new Date().toISOString();
+                        return { ...user, deleted_at: newDeletedAt };
+                    }
+                    return user;
+                }),
+            );
         } catch (error) {
             console.error(error);
         }
@@ -76,7 +64,9 @@ function AdminUsers() {
     return (
         <section className="admin-users-root">
             <h2 className="admin-users-header">Управление пользователями</h2>
-            <p className="admin-users-subtitle">Всего пользователей: {users.length}</p>
+            <p className="admin-users-subtitle">
+                Всего пользователей: {users.length}
+            </p>
 
             <div className="admin-users-table-wrapper">
                 <table className="admin-users-table">
@@ -92,33 +82,51 @@ function AdminUsers() {
                     </thead>
                     <tbody>
                         {users.map((user) => (
-                            <tr key={user.userId} className={user.deletedAt ? "banned-row" : ""}>
+                            <tr
+                                key={user._id}
+                                className={user.deleted_at ? "banned-row" : ""}
+                            >
                                 <td className="font-bold">{user.username}</td>
-                                <td>{user.firstName || ""} {user.lastName || ""}</td>
+                                <td>
+                                    {user.first_name || ""}{" "}
+                                    {user.last_name || ""}
+                                </td>
                                 <td className="contacts-cell">
                                     <span className="email">{user.email}</span>
-                                    <span className="phone">{user.phoneNumber || "Не указан"}</span>
+                                    <span className="phone">
+                                        {user.phone_number || "Не указан"}
+                                    </span>
                                 </td>
-                                <td>{formatDate(user.createdAt)}</td>
+                                <td>{formatDate(user.created_at)}</td>
                                 <td>
-                                    <select 
+                                    <select
                                         className="admin-users-role-select"
-                                        value={user.role || "user"} 
-                                        onChange={(e) => handleRoleChange(user.userId, e.target.value)}
-                                        // Я запретил менять роль самой себе на бэкенде, защитим и фронт.
-                                        disabled={user.username === appState.currentUser?.username} 
+                                        value={user.role}
+                                        onChange={(e) =>
+                                            handleRoleChange(
+                                                user._id,
+                                                e.target.value,
+                                            )
+                                        }
+                                        disabled={user._id === currentUserId}
                                     >
-                                        <option value="user">Customer</option>
+                                        <option value="customer">
+                                            Customer
+                                        </option>
                                         <option value="admin">Admin</option>
                                     </select>
                                 </td>
                                 <td>
-                                    <button 
-                                        className={`admin-users-ban-btn ${user.deletedAt ? 'unban' : 'ban'}`}
-                                        onClick={() => handleToggleBan(user.userId)}
-                                        disabled={user.username === appState.currentUser?.username}
+                                    <button
+                                        className={`admin-users-ban-btn ${user.deleted_at ? "unban" : "ban"}`}
+                                        onClick={() =>
+                                            handleToggleBan(user._id)
+                                        }
+                                        disabled={user._id === currentUserId}
                                     >
-                                        {user.deletedAt ? "Разблокировать" : "Заблокировать"}
+                                        {user.deleted_at
+                                            ? "Разблокировать"
+                                            : "Заблокировать"}
                                     </button>
                                 </td>
                             </tr>

@@ -1,10 +1,10 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useContext } from "react";
 import ReactDOM from "react-dom";
+import { GlobalContext } from "../../../GlobalContext";
 import "../styles/admin-products-styles.css";
 
 function AdminProductModal({ isOpen, onClose, productToEdit }) {
-    const [categories, setCategories] = useState([]);
-    const [suppliers, setSuppliers] = useState([]);
+    const { categories, suppliers, setProducts } = useContext(GlobalContext);
 
     const initialFormState = {
         name: "",
@@ -29,36 +29,68 @@ function AdminProductModal({ isOpen, onClose, productToEdit }) {
     const [isSaving, setIsSaving] = useState(false);
 
     useEffect(() => {
-        // Подтягиваю категории напрямую с бэкенда, чтобы тебе не нужно было передавать их пропсами
-        fetch("/api/categories")
-            .then((res) => res.json())
-            .then((data) => {
-                if (data.categories) setCategories(data.categories);
-            })
-            .catch(console.error);
-    }, []);
+        const urlsToRevoke = [];
 
-    useEffect(() => {
         if (isOpen) {
             if (productToEdit) {
                 setFormData({
                     name: productToEdit.name || "",
                     description: productToEdit.description || "",
-                    category_id: productToEdit.categoryId || "",
-                    supplier_id: productToEdit.supplierId || "",
-                    is_base: !!productToEdit.isBase,
-                    is_custom: !!productToEdit.isCustom,
+                    category_id: productToEdit.category_id || "",
+                    supplier_id: productToEdit.supplier_id || "",
+                    is_base: !!productToEdit.is_base,
+                    is_custom: !!productToEdit.is_custom,
+                });
+
+                const existingFront = productToEdit.front_photo_url || null;
+                const existingBack = productToEdit.back_photo_url || null;
+                const existingGallery = productToEdit.photos
+                    ? productToEdit.photos.map((p) => p.file_path)
+                    : [];
+
+                setFiles({
+                    front_photo: existingFront,
+                    back_photo: existingBack,
+                    gallery: existingGallery,
+                });
+
+                const frontPreview = existingFront
+                    ? URL.createObjectURL(existingFront)
+                    : null;
+                const backPreview = existingBack
+                    ? URL.createObjectURL(existingBack)
+                    : null;
+
+                const galleryPreviews = existingGallery
+                    .map((f) => {
+                        if (f) return URL.createObjectURL(f);
+                        return null;
+                    })
+                    .filter(Boolean);
+
+                if (frontPreview) urlsToRevoke.push(frontPreview);
+                if (backPreview) urlsToRevoke.push(backPreview);
+                galleryPreviews.forEach((u) => urlsToRevoke.push(u));
+
+                setPreviewUrls({
+                    front_photo: frontPreview,
+                    back_photo: backPreview,
+                    gallery: galleryPreviews,
                 });
             } else {
                 setFormData(initialFormState);
+                setFiles({ front_photo: null, back_photo: null, gallery: [] });
+                setPreviewUrls({
+                    front_photo: null,
+                    back_photo: null,
+                    gallery: [],
+                });
             }
-            setFiles({ front_photo: null, back_photo: null, gallery: [] });
-            setPreviewUrls({
-                front_photo: null,
-                back_photo: null,
-                gallery: [],
-            });
         }
+
+        return () => {
+            urlsToRevoke.forEach((url) => URL.revokeObjectURL(url));
+        };
     }, [isOpen, productToEdit]);
 
     if (!isOpen) return null;
@@ -109,7 +141,7 @@ function AdminProductModal({ isOpen, onClose, productToEdit }) {
         }));
     };
 
-    const handleSubmit = async (e) => {
+    const handleSubmit = (e) => {
         e.preventDefault();
 
         if (!formData.name) {
@@ -119,42 +151,57 @@ function AdminProductModal({ isOpen, onClose, productToEdit }) {
 
         setIsSaving(true);
         try {
-            const data = new FormData();
-            data.append("name", formData.name);
-            data.append("description", formData.description);
-            if (formData.category_id)
-                data.append("category_id", formData.category_id);
-            if (formData.supplier_id)
-                data.append("supplier_id", formData.supplier_id);
-            data.append("is_base", formData.is_base);
-            data.append("is_custom", formData.is_custom);
+            const productData = {
+                name: formData.name,
+                description: formData.description,
+                category_id: formData.category_id
+                    ? Number(formData.category_id)
+                    : null,
+                supplier_id: formData.supplier_id
+                    ? Number(formData.supplier_id)
+                    : null,
+                is_base: formData.is_base,
+                is_custom: formData.is_custom,
+                updated_at: new Date().toISOString(),
+            };
 
-            if (files.front_photo)
-                data.append("front_photo", files.front_photo);
-            if (files.back_photo) data.append("back_photo", files.back_photo);
-            files.gallery.forEach((file) => data.append("gallery", file));
-
-            const token = localStorage.getItem("token");
-            const url = productToEdit
-                ? `/api/admin/products/${productToEdit.productId}`
-                : "/api/admin/products";
-            const method = productToEdit ? "PUT" : "POST";
-
-            const res = await fetch(url, {
-                method,
-                headers: { Authorization: `Bearer ${token}` },
-                body: data,
-            });
-
-            if (res.ok) {
-                onClose(true); // Сообщаем родителю, что нужно обновить список
-            } else {
-                const err = await res.json();
-                alert(
-                    err.message ||
-                        "Ошибка сохранения",
+            if (productToEdit) {
+                setProducts((prev) =>
+                    prev.map((p) => {
+                        if (p._id === productToEdit._id) {
+                            const updatedProduct = { ...p, ...productData };
+                            updatedProduct.front_photo_url = files.front_photo;
+                            updatedProduct.back_photo_url = files.back_photo;
+                            updatedProduct.photos = files.gallery.map((f) => ({
+                                file_path: f,
+                            }));
+                            return updatedProduct;
+                        }
+                        return p;
+                    }),
                 );
+            } else {
+                const newProduct = {
+                    _id: Date.now(),
+                    ...productData,
+                    created_at: new Date().toISOString(),
+                    deleted_at: null,
+                    prices: [
+                        {
+                            price: 0,
+                            created_at: new Date().toISOString(),
+                            is_active: true,
+                        },
+                    ],
+                    photos: files.gallery.map((f) => ({ file_path: f })),
+                    custom_photos: [],
+                    front_photo_url: files.front_photo,
+                    back_photo_url: files.back_photo,
+                };
+                setProducts((prev) => [...prev, newProduct]);
             }
+
+            onClose();
         } catch (error) {
             console.error(error);
         } finally {
@@ -162,12 +209,8 @@ function AdminProductModal({ isOpen, onClose, productToEdit }) {
         }
     };
 
-    // Я создаю портал, чтобы твои стили работали поверх всего остального документа
     return ReactDOM.createPortal(
-        <div
-            className="admin-product-modal-overlay"
-            onClick={() => onClose(false)}
-        >
+        <div className="admin-product-modal-overlay" onClick={() => onClose()}>
             <div
                 className="admin-product-modal-box"
                 onClick={(e) => e.stopPropagation()}
@@ -179,8 +222,9 @@ function AdminProductModal({ isOpen, onClose, productToEdit }) {
                             : "Создание товара"}
                     </h2>
                     <button
+                        type="button"
                         className="admin-product-modal-close"
-                        onClick={() => onClose(false)}
+                        onClick={() => onClose()}
                     >
                         ✕
                     </button>
@@ -222,14 +266,12 @@ function AdminProductModal({ isOpen, onClose, productToEdit }) {
                                     <option value="">
                                         Выберите категорию...
                                     </option>
-                                    {categories.map((c) => (
-                                        <option
-                                            key={c.categoryId}
-                                            value={c.categoryId}
-                                        >
-                                            {c.name}
-                                        </option>
-                                    ))}
+                                    {categories &&
+                                        categories.map((c) => (
+                                            <option key={c._id} value={c._id}>
+                                                {c.name}
+                                            </option>
+                                        ))}
                                 </select>
                             </div>
                             <div className="admin-product-input-group">
@@ -242,11 +284,12 @@ function AdminProductModal({ isOpen, onClose, productToEdit }) {
                                     <option value="">
                                         Выберите поставщика...
                                     </option>
-                                    {suppliers.map((s) => (
-                                        <option key={s.id} value={s.id}>
-                                            {s.name}
-                                        </option>
-                                    ))}
+                                    {suppliers &&
+                                        suppliers.map((s) => (
+                                            <option key={s._id} value={s._id}>
+                                                {s.name}
+                                            </option>
+                                        ))}
                                 </select>
                             </div>
                         </div>
@@ -264,8 +307,8 @@ function AdminProductModal({ isOpen, onClose, productToEdit }) {
                                     checked={formData.is_base}
                                     onChange={handleInputChange}
                                 />
-                                <span className="admin-checkbox-custom"></span>
-                                Это базовая основа для кастомизатора
+                                <span className="admin-checkbox-custom"></span>{" "}
+                                Это базовая основа
                             </label>
                             <label className="admin-checkbox-label">
                                 <input
@@ -274,21 +317,16 @@ function AdminProductModal({ isOpen, onClose, productToEdit }) {
                                     checked={formData.is_custom}
                                     onChange={handleInputChange}
                                 />
-                                <span className="admin-checkbox-custom"></span>
-                                Это кастомный товар пользователя
+                                <span className="admin-checkbox-custom"></span>{" "}
+                                Это кастомный товар
                             </label>
                         </div>
                     </div>
 
-                    {/* Я показываю этот блок ТОЛЬКО если ты включила is_base */}
                     {formData.is_base && (
                         <div className="admin-product-step highlighted-step">
                             <p className="admin-product-step-title">
                                 Шаг 3: Фото основы (Front / Back)
-                            </p>
-                            <p className="admin-product-step-hint">
-                                Так как товар отмечен как основа, загрузите
-                                манекены.
                             </p>
                             <div className="admin-product-row-group">
                                 <div className="admin-product-file-upload">
@@ -371,7 +409,7 @@ function AdminProductModal({ isOpen, onClose, productToEdit }) {
                         <button
                             type="button"
                             className="admin-btn-cancel"
-                            onClick={() => onClose(false)}
+                            onClick={() => onClose()}
                         >
                             Отмена
                         </button>

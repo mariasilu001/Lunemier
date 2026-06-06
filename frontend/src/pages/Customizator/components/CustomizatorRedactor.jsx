@@ -6,9 +6,11 @@ import Header from "../../../layouts/MainLayout/components/Header";
 import { toPng } from "html-to-image";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { AppStateContext } from "../../../App";
+import { GlobalContext } from "../../../GlobalContext"; // Добавили наш контекст!
 
 function CustomizatorRedactor() {
     const { appState } = useContext(AppStateContext);
+    const { products, setProducts } = useContext(GlobalContext); // Достаем базу продуктов
     const navigate = useNavigate();
     const [searchParams] = useSearchParams();
     const baseId = searchParams.get("baseId");
@@ -19,37 +21,65 @@ function CustomizatorRedactor() {
     const [images, setImages] = useState([]);
     const [isSaving, setIsSaving] = useState(false);
 
+    // Стейты для временных ссылок на Blob-файлы одежды
+    const [frontBgUrl, setFrontBgUrl] = useState("/cloth-front.png");
+    const [backBgUrl, setBackBgUrl] = useState("/cloth-back.png");
+
     const exportRef = useRef(null);
 
-    // Я проверяю, выбрала ли ты основу. Если нет — пошла вон обратно в каталог.
+    // === 1. ЗАГРУЗКА ОСНОВЫ ИЗ ИНДЕКСА ===
     useEffect(() => {
+        if (!products) return; // Ждем, пока IndexedDB отдаст данные
+
         if (!baseId) {
             navigate("/customizator/select-base");
             return;
         }
 
-        fetch(`/api/products/${baseId}`)
-            .then((res) => res.json())
-            .then((data) => {
-                if (data.product) {
-                    setBaseProduct(data.product);
-                }
-            })
-            .catch((err) => console.error("Ошибка загрузки основы:", err));
-    }, [baseId, navigate]);
+        // Ищем основу в нашей локальной базе
+        const foundBase = products.find((p) => p._id === Number(baseId));
+        if (foundBase) {
+            setBaseProduct(foundBase);
+        } else {
+            console.error("Основа не найдена в базе!");
+            navigate("/customizator/select-base");
+        }
+    }, [baseId, products, navigate]);
 
+    // === 2. ГЕНЕРАЦИЯ ССЫЛОК ДЛЯ ФАЙЛОВ ОДЕЖДЫ ===
+    useEffect(() => {
+        let fUrl = null;
+        let bUrl = null;
+
+        if (baseProduct) {
+            if (baseProduct.front_photo_url) {
+                fUrl = URL.createObjectURL(baseProduct.front_photo_url);
+                setFrontBgUrl(fUrl);
+            }
+            if (baseProduct.back_photo_url) {
+                bUrl = URL.createObjectURL(baseProduct.back_photo_url);
+                setBackBgUrl(bUrl);
+            }
+        }
+
+        // Жесткая очистка памяти при выходе
+        return () => {
+            if (fUrl) URL.revokeObjectURL(fUrl);
+            if (bUrl) URL.revokeObjectURL(bUrl);
+        };
+    }, [baseProduct]);
+
+    // === 3. ЗАГРУЗКА КАРТИНОК ПОЛЬЗОВАТЕЛЯ ===
     const handleFileUpload = (event) => {
         const file = event.target.files[0];
         if (!file) return;
 
-        // Мой сервер задыхается от мусора. Больше 10 картинок я не пропущу.
         if (images.length >= 10) {
-            alert("не больше 10 изображений на один кастом.");
+            alert("Не больше 10 изображений на один кастом. Я не резиновый.");
             return;
         }
 
         const url = URL.createObjectURL(file);
-
         const imgElement = new Image();
         imgElement.src = url;
         imgElement.onload = () => {
@@ -62,7 +92,7 @@ function CustomizatorRedactor() {
                 ...prev,
                 {
                     id: Date.now(),
-                    file, // Я сохраняю оригинальный файл для FormData
+                    file,
                     url,
                     x: 100,
                     y: 150,
@@ -74,7 +104,6 @@ function CustomizatorRedactor() {
                 },
             ]);
         };
-
         event.target.value = null;
     };
 
@@ -87,17 +116,23 @@ function CustomizatorRedactor() {
     };
 
     const removeImage = (id) => {
+        // Очищаем память от удаленной картинки
+        const imgToRemove = images.find((img) => img.id === id);
+        if (imgToRemove) URL.revokeObjectURL(imgToRemove.url);
+
         setImages(images.filter((img) => img.id !== id));
     };
 
+    // === 4. СОХРАНЕНИЕ КАСТОМА В БАЗУ ===
     const handleSave = async () => {
-        if (!appState.isAuthenticated) {
+        const userId = Number(localStorage.getItem("user_id"));
+        if (!userId) {
             navigate("/login");
             return;
         }
 
-        if (!baseId) {
-            alert("Отсутствует ID основы.");
+        if (!baseProduct) {
+            alert("Отсутствует основа.");
             return;
         }
 
@@ -106,6 +141,8 @@ function CustomizatorRedactor() {
         setIsSaving(true);
         try {
             console.log("Захватываю твой дизайн...");
+
+            // 1. Делаем скриншот
             const dataUrl = await toPng(exportRef.current, {
                 pixelRatio: 2,
                 filter: (node) => {
@@ -120,62 +157,51 @@ function CustomizatorRedactor() {
                 },
             });
 
-            // Превращаем dataURL скриншота в бинарный Blob
+            // 2. Превращаем скриншот (Base64) в настоящий файл (Blob)
             const resScreenshot = await fetch(dataUrl);
             const blobScreenshot = await resScreenshot.blob();
 
-            // Формируем FormData в точности так, как ждет мой бэкенд
-            const formData = new FormData();
-            formData.append("baseProductId", baseId);
-            formData.append(
-                "name",
-                `Кастом: ${baseProduct?.name || "Уникальный дизайн"}`,
-            );
-            formData.append(
-                "description",
-                `Цвет основы: ${baseColor}. Моё творение.`,
-            );
-            formData.append("screenshot", blobScreenshot, "screenshot.png");
+            // 3. Формируем новый объект продукта по нашей схеме
+            const newCustomProduct = {
+                _id: Date.now(), // Генерируем уникальный ID
+                name: `Кастом: ${baseProduct.name}`,
+                description: `Цвет основы: ${baseColor}. Моё творение.`,
+                base_product_id: baseProduct._id,
+                size_id: baseProduct.size_id,
+                category_id: baseProduct.category_id,
+                supplier_id: baseProduct.supplier_id,
+                is_custom: true, // Это кастом!
+                is_base: false, // Это больше не основа!
+                user_id: userId, // Привязываем к текущему юзеру
+                front_photo_url: null, // Главная картинка - это наш скриншот-Blob
+                back_photo_url: null,
+                created_at: new Date().toISOString(),
+                updated_at: null,
+                deleted_at: null,
+                prices: baseProduct.prices, // Наследуем цену основы
+                photos: [{ file_path: blobScreenshot }], // Обычных фоток нет
 
-            // Собираем детали и сами файлы принтов
-            const customImagesData = [];
-            images.forEach((img) => {
-                formData.append("customImages", img.file);
-                customImagesData.push({
-                    side: img.side,
-                    x: img.x,
-                    y: img.y,
-                    scale: img.scale,
-                    rotation: img.rotation,
-                });
-            });
+                // 4. Формируем массив кастомных фоток (в точности как ты описывала)
+                custom_photos: images.map((img) => ({
+                    file_path: img.file, // Настоящий Blob-файл, который загрузил юзер
+                    details: {
+                        side: img.side,
+                        x: img.x,
+                        y: img.y,
+                        scale: img.scale,
+                        rotation: img.rotation,
+                    },
+                })),
+            };
 
-            // Строго в формате JSON, как я и задумал на сервере
-            formData.append(
-                "customImagesData",
-                JSON.stringify(customImagesData),
-            );
+            // 5. Жестко перезаписываем стейт продуктов (а useEffect в Context сохранит это в IndexedDB)
+            setProducts((prev) => [...prev, newCustomProduct]);
 
-            const token = localStorage.getItem("token");
-            const response = await fetch("/api/me/customs", {
-                method: "POST",
-                headers: {
-                    Authorization: `Bearer ${token}`,
-                },
-                body: formData,
-            });
-
-            const result = await response.json();
-
-            if (response.ok) {
-
-                navigate("/profile/customs");
-            } else {
-                throw new Error(result.message || "Ошибка при сохранении.");
-            }
+            alert("Кастом успешно сохранен в базе.");
+            navigate("/profile/customs");
         } catch (err) {
             console.error("Ошибка при создании кастома:", err);
-            alert(err.message || "ошиба");
+            alert("Произошла ошибка. Читай консоль.");
         } finally {
             setIsSaving(false);
         }
@@ -183,17 +209,10 @@ function CustomizatorRedactor() {
 
     const visibleImages = images.filter((img) => img.side === side);
 
+    // === 5. РЕНДЕР ХОЛСТА ===
     const renderClothCanvas = (renderSide, isExport = false) => {
-        // Подтягиваем фото основы с бэкенда, если они есть. Иначе берем заглушки.
-        let clothImg =
-            renderSide === "front" ? "/cloth-front.png" : "/cloth-back.png";
-        if (baseProduct) {
-            if (renderSide === "front" && baseProduct.frontPhotoUrl)
-                clothImg = `/${baseProduct.frontPhotoUrl.replace(/\\/g, "/")}`;
-            if (renderSide === "back" && baseProduct.backPhotoUrl)
-                clothImg = `/${baseProduct.backPhotoUrl.replace(/\\/g, "/")}`;
-        }
-
+        // Берем подготовленные временные ссылки
+        const clothImg = renderSide === "front" ? frontBgUrl : backBgUrl;
         const sideImages = images.filter((img) => img.side === renderSide);
 
         return (
@@ -396,7 +415,6 @@ function CustomizatorRedactor() {
                     </div>
                     {renderClothCanvas(side, false)}
 
-                    {/* Скрытый холст для правильного захвата скриншота сразу двух сторон */}
                     <div
                         style={{
                             position: "absolute",

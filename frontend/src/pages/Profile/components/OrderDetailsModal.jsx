@@ -1,8 +1,13 @@
-import React from "react";
+import React, { useContext } from "react";
 import ProductCard from "../../../components/ProductCard/ProductCard";
+import { GlobalContext } from "../../../GlobalContext"; // Подключаем базу данных
 import "../styles/order-details-modal-styles.css";
 
 function OrderDetailsModal({ isOpen, onClose, order }) {
+    // 1. Достаем продукты из нашего монолита
+    const { products } = useContext(GlobalContext);
+
+    // Жесткий барьер
     if (!isOpen || !order) return null;
 
     const formatDate = (dateStr) => {
@@ -10,12 +15,24 @@ function OrderDetailsModal({ isOpen, onClose, order }) {
         return new Date(dateStr).toLocaleDateString("ru-RU");
     };
 
-    const getStatusCode = (status) => {
-        if (status === "Новый") return "ready";
-        if (status === "Завершен") return "delivered";
-        if (status === "Отменен") return "cancelled";
-        return "ready";
+    // 2. Правильный переводчик статусов
+    const getStatusInfo = (status) => {
+        switch (status) {
+            case "paid":
+            case "Новый":
+                return { color: "ready", text: "Оплачен / Новый" };
+            case "delivered":
+            case "Завершен":
+                return { color: "delivered", text: "Завершен" };
+            case "cancelled":
+            case "Отменен":
+                return { color: "cancelled", text: "Отменен" };
+            default:
+                return { color: "ready", text: status };
+        }
     };
+
+    const statusInfo = getStatusInfo(order.status);
 
     return (
         <div className="order-details-modal-overlay" onClick={onClose}>
@@ -25,7 +42,8 @@ function OrderDetailsModal({ isOpen, onClose, order }) {
             >
                 <div className="order-details-modal-header">
                     <p className="order-details-modal-title">
-                        Заказ №{order.orderId}
+                        {/* Исправлен ключ на _id */}
+                        Заказ №{order._id}
                     </p>
                     <button
                         className="order-details-modal-close-btn"
@@ -49,9 +67,9 @@ function OrderDetailsModal({ isOpen, onClose, order }) {
                             Статус:
                         </span>
                         <span
-                            className={`order-details-info-value status-${getStatusCode(order.status)}`}
+                            className={`order-details-info-value status-${statusInfo.color}`}
                         >
-                            {order.status}
+                            {statusInfo.text}
                         </span>
                     </div>
                     <div className="order-details-info-row">
@@ -59,7 +77,8 @@ function OrderDetailsModal({ isOpen, onClose, order }) {
                             Дата оформления:
                         </span>
                         <span className="order-details-info-value">
-                            {formatDate(order.createdAt)}
+                            {/* Исправлен ключ на created_at */}
+                            {formatDate(order.created_at)}
                         </span>
                     </div>
                     <div className="order-details-info-row">
@@ -67,7 +86,8 @@ function OrderDetailsModal({ isOpen, onClose, order }) {
                             Сумма заказа:
                         </span>
                         <span className="order-details-info-value amount">
-                            {order.totalAmount} ₽
+                            {/* Исправлен ключ на total_amount */}
+                            {order.total_amount} ₽
                         </span>
                     </div>
                 </div>
@@ -76,14 +96,29 @@ function OrderDetailsModal({ isOpen, onClose, order }) {
                 <p className="order-details-products-title">Товары в заказе</p>
 
                 <div className="order-details-products-grid">
-                    {/* Я пробрасываю реальные товары из твоего заказа */}
-                    {order.orderItems &&
-                        order.orderItems.map((item) => (
-                            <ProductCard
-                                key={item.orderItemId}
-                                product={item.product}
-                            />
-                        ))}
+                    {/* 3. Ищем реальные продукты по ID из заказа */}
+                    {order.order_items &&
+                        products &&
+                        order.order_items.map((item, index) => {
+                            // Находим полный объект товара
+                            const productData = products.find(
+                                (p) => p._id === item.product_id,
+                            );
+
+                            // Защита: если товар был удален из магазина, просто не рисуем его, чтобы не сломать сайт
+                            if (!productData) return null;
+
+                            return (
+                                <>
+                                    <ProductCard
+                                        // Уникальный ключ из ID заказа и ID товара
+                                        key={`${order._id}-${item.product_id}-${index}`}
+                                        product={productData}
+                                    />
+                                    {/*<p>Количество: {item.quantity}</p>*/}
+                                </>
+                            );
+                        })}
                 </div>
             </div>
         </div>

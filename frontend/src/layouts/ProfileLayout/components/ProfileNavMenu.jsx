@@ -1,16 +1,21 @@
 import React, { useContext } from "react";
 import { NavLink } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { AppStateContext } from "../../../App";
+import { GlobalContext } from "../../../GlobalContext";
 import "../styles/profile-nav-menu-styles.css";
 
 function ProfileNavMenu() {
     const { appState } = useContext(AppStateContext);
+    const { users } = useContext(GlobalContext);
 
-    // Безопасное извлечение. Если данные еще не пришли с сервера, показываем загрузку.
-    const user = appState.currentUser || {
-        username: "Загрузка...",
-        createdAt: null,
-    };
+    const navigate = useNavigate();
+
+    const userId = Number(localStorage.getItem("user_id"));
+    if (!users) return null;
+    if (!userId) navigate("/login");
+
+    const user = users.find((u) => u._id === userId);
 
     // Я сам отформатирую дату для тебя.
     const formatDate = (dateString) => {

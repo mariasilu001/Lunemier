@@ -1,50 +1,43 @@
-import React, { useState, useEffect, useContext } from "react";
+import React, { useContext } from "react";
+import { useNavigate } from "react-router-dom"; // Навигатор для защиты
 import ProductCard from "../../../components/ProductCard/ProductCard";
 import { AppStateContext } from "../../../App";
+import { GlobalContext } from "../../../GlobalContext"; // Наша база данных
 import "../styles/profile-reviews-styles.css";
 
 function ProfileReviews() {
     const { appState } = useContext(AppStateContext);
-    const [reviews, setReviews] = useState([]);
+    // Достаем глобальные отзывы, продукты и функцию изменения отзывов
+    const { reviews, setReviews, products } = useContext(GlobalContext);
+    const navigate = useNavigate();
 
-    useEffect(() => {
-        if (!appState.isAuthenticated) return;
-        const token = localStorage.getItem("token");
+    // 1. ЖЕСТКИЕ БАРЬЕРЫ
+    if (!reviews || !products) return null; // Ждем загрузки IndexedDB
 
-        fetch("/api/me/reviews", {
-            headers: { Authorization: `Bearer ${token}` },
-        })
-            .then((res) => res.json())
-            .then((data) => {
-                if (data.reviews) setReviews(data.reviews);
-            })
-            .catch((err) => console.error(err));
-    }, [appState.isAuthenticated]);
+    const userId = Number(localStorage.getItem("user_id"));
+    if (!userId) {
+        navigate("/login");
+        return null;
+    }
 
-    const handleDelete = async (reviewId) => {
-        if (!window.confirm("Ты хочешь стереть этот отзыв?"))
-            return;
+    // 2. ВЫЧИСЛЯЕМЫЕ ДАННЫЕ (Без useState и fetch)
+    // Фильтруем отзывы: оставляем только те, которые написал текущий юзер
+    const myReviews = reviews.filter((r) => r.user_id === userId);
+
+    // 3. АВТОНОМНОЕ УДАЛЕНИЕ
+    const handleDelete = (reviewId) => {
+        if (!window.confirm("Ты хочешь стереть этот отзыв?")) return;
 
         try {
-            const token = localStorage.getItem("token");
-            const res = await fetch(`/api/me/reviews/${reviewId}`, {
-                method: "DELETE",
-                headers: { Authorization: `Bearer ${token}` },
-            });
-
-            if (res.ok) {
-                setReviews((prev) =>
-                    prev.filter((r) => r.reviewId !== reviewId),
-                );
-            } else {
-                const err = await res.json();
-                alert(err.message || "Ошибка удаления.");
-            }
+            // Удаляем отзыв из глобального массива
+            // Наш "Наблюдатель" в контексте сам перезапишет IndexedDB
+            setReviews((prev) => prev.filter((r) => r._id !== reviewId));
         } catch (error) {
             console.error(error);
         }
     };
 
+    // 4. ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ
     const renderStars = (rating) => {
         return [1, 2, 3, 4, 5].map((star) =>
             star <= rating ? (
@@ -80,67 +73,81 @@ function ProfileReviews() {
         return new Date(dateStr).toLocaleDateString("ru-RU");
     };
 
+    // 5. РЕНДЕР
     return (
         <section className="profile-reviews-root">
             <h2 className="profile-reviews-header">Мои отзывы</h2>
 
             <div className="profile-reviews-list">
-                {reviews.length === 0 && (
-                    <p style={{ color: "var(--color-dark-brown)" }}>
-                        Пусто
-                    </p>
+                {myReviews.length === 0 && (
+                    <p style={{ color: "var(--color-dark-brown)" }}>Пусто</p>
                 )}
-                {reviews.map((review) => (
-                    <div className="profile-review-card" key={review.reviewId}>
-                        <div className="profile-review-card-left">
-                            <ProductCard product={review.product} />
-                        </div>
+                {myReviews.map((review) => {
+                    // Ищем целый объект продукта в базе, чтобы передать его в карточку
+                    const reviewedProduct = products.find(
+                        (p) => p._id === review.product_id,
+                    );
 
-                        <div className="profile-review-card-right">
-                            <p className="profile-review-date">
-                                {formatDate(review.createdAt)}
-                            </p>
+                    // Защита от удаленных товаров
+                    if (!reviewedProduct) return null;
 
-                            <div className="profile-review-rating-group">
-                                <div className="profile-review-stars">
-                                    {renderStars(review.rating)}
-                                </div>
-                                <span className="profile-review-rating-number">
-                                    {review.rating}.0
-                                </span>
+                    return (
+                        <div className="profile-review-card" key={review._id}>
+                            <div className="profile-review-card-left">
+                                {/* Передаем реальный продукт */}
+                                <ProductCard product={reviewedProduct} />
                             </div>
 
-                            <p className="profile-review-text">
-                                {review.reviewText}
-                            </p>
+                            <div className="profile-review-card-right">
+                                <p className="profile-review-date">
+                                    {/* Исправлен ключ даты */}
+                                    {formatDate(review.created_at)}
+                                </p>
 
-                            {review.photos && review.photos.length > 0 && (
-                                <div className="profile-review-photos-group">
-                                    {review.photos.map((photo) => (
-                                        <img
-                                            key={photo.reviewPhotoId}
-                                            src={`/${photo.filePath.replace(/\\/g, "/")}`}
-                                            alt="review-attached"
-                                            className="profile-review-photo"
-                                        />
-                                    ))}
+                                <div className="profile-review-rating-group">
+                                    <div className="profile-review-stars">
+                                        {renderStars(review.rating)}
+                                    </div>
+                                    <span className="profile-review-rating-number">
+                                        {review.rating}.0
+                                    </span>
                                 </div>
-                            )}
 
-                            <div className="profile-review-actions">
-                                {/* Кнопку изменить я стер по твоему приказу */}
-                                <button
-                                    className="profile-review-btn-delete"
-                                    onClick={() =>
-                                        handleDelete(review.reviewId)
-                                    }
-                                >
-                                    Удалить
-                                </button>
+                                <p className="profile-review-text">
+                                    {/* Исправлен ключ текста */}
+                                    {review.review_text}
+                                </p>
+
+                                {/* Логика Base64 фото, как мы делали в прошлом файле */}
+                                {review.photos && review.photos.length > 0 && (
+                                    <div className="profile-review-photos-group">
+                                        {review.photos.map((photo, index) => (
+                                            <img
+                                                key={index}
+                                                src={photo.file_path}
+                                                alt="review-attached"
+                                                className="profile-review-photo"
+                                                onError={(e) =>
+                                                    (e.target.style.display =
+                                                        "none")
+                                                }
+                                            />
+                                        ))}
+                                    </div>
+                                )}
+
+                                <div className="profile-review-actions">
+                                    <button
+                                        className="profile-review-btn-delete"
+                                        onClick={() => handleDelete(review._id)}
+                                    >
+                                        Удалить
+                                    </button>
+                                </div>
                             </div>
                         </div>
-                    </div>
-                ))}
+                    );
+                })}
             </div>
         </section>
     );

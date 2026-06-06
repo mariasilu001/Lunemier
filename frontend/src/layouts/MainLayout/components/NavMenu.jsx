@@ -1,41 +1,47 @@
 import React, { useEffect, useState, useContext } from "react";
 import { AppStateContext } from "../../../App";
+import { GlobalContext } from "../../../GlobalContext";
 import "../styles/nav-menu-styles.css";
 
 function NavMenu() {
-    const [categories, setCategories] = useState([]);
+    //  const [categories, setCategories] = useState([]);
 
-    // Я забираю контроль над стейтом приложения
     const { appState, setAppState } = useContext(AppStateContext);
+    const { categories, setCategories } = useContext(GlobalContext);
 
-    // Если категория не выбрана, значит мы смотрим "Все категории" (null)
-    const activeCategoryId = appState.selectedCategoryId || null;
+    const activeCategory = categories
+        ? categories.find((c) => c.is_active === true)
+        : null;
+    const activeCategoryId = activeCategory ? activeCategory._id : null;
 
-    useEffect(() => {
-        // Иду на свой бэкенд за категориями
-        fetch("/api/categories")
-            .then((res) => res.json())
-            .then((data) => {
-                if (data.categories) {
-                    setCategories(data.categories);
+    // useEffect(() => {
+    //     // Иду на свой бэкенд за категориями
+    //     fetch("/api/categories")
+    //         .then((res) => res.json())
+    //         .then((data) => {
+    //             if (data.categories) {
+    //                 setCategories(data.categories);
+    //             }
+    //         })
+    //         .catch((err) =>
+    //             console.error("Я не смог загрузить категории:", err),
+    //         );
+    // }, []);
+
+    const handleCategoryClick = (id) => {
+        setCategories((prev) => {
+            return prev.map((c) => {
+                if (c._id === id) {
+                    return { ...c, is_active: true };
+                } else {
+                    return { ...c, is_active: false };
                 }
-            })
-            .catch((err) =>
-                console.error("Я не смог загрузить категории:", err),
-            );
-    }, []);
-
-    // Моя функция жестко устанавливает выбранную категорию в глобальный стейт
-    const handleCategoryClick = (categoryId) => {
-        setAppState((prev) => ({
-            ...prev,
-            selectedCategoryId: categoryId,
-        }));
+            });
+        });
     };
 
     return (
         <nav className="nav-menu-root">
-            {/* Статичный пункт "Все категории" */}
             <div
                 className={`nav-menu-nav-item-wrapper ${activeCategoryId === null ? "active" : ""}`}
                 onClick={() => handleCategoryClick(null)}
@@ -44,12 +50,11 @@ function NavMenu() {
                 <div className="nav-menu-nav-item-separator"></div>
             </div>
 
-            {/* Динамические категории из моей базы */}
-            {categories.map((c) => (
+            {categories && categories.map((c) => (
                 <div
-                    className={`nav-menu-nav-item-wrapper ${activeCategoryId === c.categoryId ? "active" : ""}`}
-                    key={c.categoryId}
-                    onClick={() => handleCategoryClick(c.categoryId)}
+                    className={`nav-menu-nav-item-wrapper ${activeCategoryId === c._id ? "active" : ""}`}
+                    key={c._id}
+                    onClick={() => handleCategoryClick(c._id)}
                 >
                     <p className="nav-menu-nav-item-name">{c.name}</p>
                     <div className="nav-menu-nav-item-separator"></div>

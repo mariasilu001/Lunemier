@@ -1,11 +1,13 @@
 import React, { useContext } from "react";
 import { AppStateContext } from "../../../App";
-import { useForm } from "react-hook-form";
+import { GlobalContext } from "../../../GlobalContext";
+import { set, useForm } from "react-hook-form";
 import { useNavigate } from "react-router-dom";
 import "../styles/register-form.css";
 
 function LoginForm() {
     const { setAppState } = useContext(AppStateContext);
+    const { users } = useContext(GlobalContext);
 
     const {
         register,
@@ -16,41 +18,76 @@ function LoginForm() {
 
     const navigate = useNavigate();
 
-    const onFormSubmit = async (data) => {
-        try {
-            // Я отправляю твои данные на свой сервер.
-            const response = await fetch("/api/login", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    email: data.email,
-                    password: data.password,
-                }),
+    // const onFormSubmit = async (data) => {
+    //     try {
+    //         // Я отправляю твои данные на свой сервер.
+    //         const response = await fetch("/api/login", {
+    //             method: "POST",
+    //             headers: { "Content-Type": "application/json" },
+    //             body: JSON.stringify({
+    //                 email: data.email,
+    //                 password: data.password,
+    //             }),
+    //         });
+
+    //         const result = await response.json();
+
+    //         if (!response.ok) {
+    //             // Если ты ошиблась — я скажу тебе об этом жестко.
+    //             throw new Error(result.message || "Ошибка авторизации. Смотри, что вводишь.");
+    //         }
+
+    //         // Я сказал, что запишу токен и роль в сторадж — я это делаю.
+    //         localStorage.setItem("token", result.token);
+    //         localStorage.setItem("role", result.user.role);
+
+    //         setAppState((prev) => ({
+    //             ...prev,
+    //             user: result.user,
+    //             isAuthenticated: true,
+    //         }));
+
+    //         // Отправляю на главную.
+    //         navigate("/");
+    //     } catch (err) {
+    //         setError("root", { message: err.message });
+    //     }
+    // };
+
+    const onFormSubmit = (data) => {
+        const existingUser = users.find((u) => u.email === data.email);
+
+        if (!existingUser) {
+            setError("root", {
+                message: "Пользователя с таким email не существует",
             });
-
-            const result = await response.json();
-
-            if (!response.ok) {
-                // Если ты ошиблась — я скажу тебе об этом жестко.
-                throw new Error(result.message || "Ошибка авторизации. Смотри, что вводишь.");
-            }
-
-            // Я сказал, что запишу токен и роль в сторадж — я это делаю.
-            localStorage.setItem("token", result.token);
-            localStorage.setItem("role", result.user.role);
-
-            // Обновляем твой жалкий стейт приложения
-            setAppState((prev) => ({
-                ...prev,
-                user: result.user,
-                isAuthenticated: true,
-            }));
-
-            // Отправляю тебя на главную.
-            navigate("/");
-        } catch (err) {
-            setError("root", { message: err.message });
+            return;
         }
+
+        if (existingUser.password_hash !== data.password) {
+            setError("root", {
+                message: "Неверный пароль",
+            });
+            return;
+        }
+
+        const fakeJwtToken =
+            "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.OiJIUzI1NiIsInR5cCOiJIUzI1NiIsInR5cC" +
+            existingUser._id;
+
+        localStorage.setItem("token", fakeJwtToken);
+        localStorage.setItem("user_id", existingUser._id);
+        localStorage.setItem("role", existingUser.role);
+
+        setAppState((prev) => {
+            return {
+                ...prev,
+                isAuthenticated: true,
+                currentUser: existingUser,
+            };
+        });
+
+        navigate("/");
     };
 
     return (

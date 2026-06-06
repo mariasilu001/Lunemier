@@ -1,62 +1,70 @@
 import React, { useContext, useState } from "react";
 import { AppStateContext } from "../../../App";
+import { GlobalContext } from "../../../GlobalContext";
 import { useNavigate } from "react-router-dom";
 import ProfileEditModal from "./ProfileEditModal";
 import "../styles/profile-info-styles.css";
 
 function ProfileInfo() {
     const { appState, setAppState } = useContext(AppStateContext);
+    const { users, setUsers } = useContext(GlobalContext);
     const navigate = useNavigate();
-
-    // Беру реального юзера или пустую заглушку на время загрузки
-    const user = appState?.currentUser || {};
 
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [currentEditField, setCurrentEditField] = useState(null);
+
+    const userId = Number(localStorage.getItem("user_id"));
+
+   
+    if (!users || !setUsers) return null;
+    if (!userId) {
+        navigate("/login");
+        return null;
+    }
+
+    const user = users.find((u) => u._id === userId);
+    if (!user) return null;
 
     const handleEditClick = (key, label, value) => {
         setCurrentEditField({ key, label, value });
         setIsModalOpen(true);
     };
 
-    const handleSaveField = async (key, newValue) => {
+    // 3. НОВЫЙ ЛОКАЛЬНЫЙ ОБРАБОТЧИК СОХРАНЕНИЯ
+    const handleSaveField = (key, newValue) => {
         try {
-            const token = localStorage.getItem("token");
-            const body = { [key]: newValue };
-
-            const res = await fetch("/api/me", {
-                method: "PUT",
-                headers: {
-                    "Content-Type": "application/json",
-                    Authorization: `Bearer ${token}`,
-                },
-                body: JSON.stringify(body),
+            // Обновляем глобальную базу данных (которая потом запишется в IndexedDB)
+            setUsers((prevUsers) => {
+                return prevUsers.map((u) => {
+                    // Ищем нашего юзера
+                    if (u._id === userId) {
+                        // Возвращаем копию юзера с измененным полем
+                        return { ...u, [key]: newValue };
+                    }
+                    // Остальных юзеров не трогаем
+                    return u;
+                });
             });
 
-            const data = await res.json();
-
-            if (!res.ok) {
-                throw new Error(
-                    data.message || "ошиба",
-                );
-            }
-
-            // Обновляем стейт только после подтверждения от сервера
+            // Обновляем текущую сессию в AppState, чтобы имя поменялось в шапке сайта
             setAppState((prev) => ({
                 ...prev,
                 currentUser: {
                     ...prev.currentUser,
-                    ...data.user,
+                    [key]: newValue,
                 },
             }));
+
+            // Закрываем модалку
             setIsModalOpen(false);
         } catch (err) {
-            alert(err.message);
+            console.error("Ошибка при обновлении профиля:", err);
+            alert("Я не смог обновить профиль. Проверь консоль.");
         }
     };
 
     const handleLogout = () => {
-        // Жестко вычищаю сессию
+        localStorage.removeItem("user_id");
         localStorage.removeItem("token");
         localStorage.removeItem("role");
         setAppState({
@@ -66,14 +74,15 @@ function ProfileInfo() {
         navigate("/login");
     };
 
+    // 4. ИСПРАВЛЕННЫЕ КЛЮЧИ (как в базе данных users.js)
     const editableFields = [
-        { key: "firstName", label: "Имя", value: user.firstName || "" },
-        { key: "lastName", label: "Фамилия", value: user.lastName || "" },
+        { key: "first_name", label: "Имя", value: user.first_name || "" },
+        { key: "last_name", label: "Фамилия", value: user.last_name || "" },
         { key: "email", label: "Электронная почта", value: user.email || "" },
         {
-            key: "phoneNumber",
+            key: "phone_number",
             label: "Номер телефона",
-            value: user.phoneNumber || "",
+            value: user.phone_number || "",
         },
     ];
 

@@ -1,7 +1,11 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useContext } from "react";
 import ReactDOM from "react-dom";
+import { GlobalContext } from "../../../GlobalContext"; // НАША БАЗА
 
 function AdminDictionaryModal({ isOpen, onClose, itemToEdit, activeTab }) {
+    const { setCategories, setSizes, setPickupPoints, setPaymentMethods } =
+        useContext(GlobalContext);
+
     const [formData, setFormData] = useState({
         name: "",
         size_value: "",
@@ -10,20 +14,20 @@ function AdminDictionaryModal({ isOpen, onClose, itemToEdit, activeTab }) {
         building: "",
         is_active: true,
     });
-    const [isSaving, setIsSaving] = useState(false);
 
     useEffect(() => {
         if (isOpen) {
             if (itemToEdit) {
+                // Подтягиваем данные. Используем правильные ключи из БД
                 setFormData({
                     name: itemToEdit.name || "",
-                    size_value: itemToEdit.sizeValue || "",
+                    size_value: itemToEdit.size_value || "",
                     city: itemToEdit.city || "",
                     street: itemToEdit.street || "",
                     building: itemToEdit.building || "",
                     is_active:
-                        itemToEdit.isActive !== undefined
-                            ? itemToEdit.isActive
+                        itemToEdit.is_active !== undefined
+                            ? itemToEdit.is_active
                             : true,
                 });
             } else {
@@ -49,65 +53,88 @@ function AdminDictionaryModal({ isOpen, onClose, itemToEdit, activeTab }) {
         }));
     };
 
-    const handleSave = async (e) => {
+    // ЛОКАЛЬНОЕ СОХРАНЕНИЕ
+    const handleSave = (e) => {
         e.preventDefault();
-        setIsSaving(true);
 
         try {
-            const token = localStorage.getItem("token");
-            let url = "";
-            let method = itemToEdit ? "PUT" : "POST";
-            let bodyData = {};
+            const newItemId = Date.now(); // Генерируем уникальный ID для новой записи
 
-            // Я жестко формирую тело запроса в зависимости от того, с каким справочником мы работаем
             if (activeTab === "categories") {
-                url = itemToEdit
-                    ? `/api/admin/categories/${itemToEdit.categoryId}`
-                    : "/api/admin/categories";
-                bodyData = { name: formData.name };
+                if (itemToEdit) {
+                    setCategories((prev) =>
+                        prev.map((c) =>
+                            c._id === itemToEdit._id
+                                ? { ...c, name: formData.name }
+                                : c,
+                        ),
+                    );
+                } else {
+                    setCategories((prev) => [
+                        ...prev,
+                        { _id: newItemId, name: formData.name },
+                    ]);
+                }
             } else if (activeTab === "sizes") {
-                url = itemToEdit
-                    ? `/api/admin/sizes/${itemToEdit.sizeId}`
-                    : "/api/admin/sizes";
-                bodyData = { size_value: formData.size_value };
-            } else if (activeTab === "pickupPoints") {
-                url = itemToEdit
-                    ? `/api/admin/pickup-points/${itemToEdit.pickupPointId}`
-                    : "/api/admin/pickup-points";
-                bodyData = {
+                if (itemToEdit) {
+                    setSizes((prev) =>
+                        prev.map((s) =>
+                            s._id === itemToEdit._id
+                                ? { ...s, size_value: formData.size_value }
+                                : s,
+                        ),
+                    );
+                } else {
+                    setSizes((prev) => [
+                        ...prev,
+                        { _id: newItemId, size_value: formData.size_value },
+                    ]);
+                }
+            } else if (activeTab === "pickup_points") {
+                const pData = {
                     city: formData.city,
                     street: formData.street,
                     building: formData.building,
                 };
-            } else if (activeTab === "paymentMethods") {
-                url = itemToEdit
-                    ? `/api/admin/payment-methods/${itemToEdit.paymentMethodId}`
-                    : "/api/admin/payment-methods";
-                bodyData = {
+                if (itemToEdit) {
+                    setPickupPoints((prev) =>
+                        prev.map((p) =>
+                            p._id === itemToEdit._id ? { ...p, ...pData } : p,
+                        ),
+                    );
+                } else {
+                    setPickupPoints((prev) => [
+                        ...prev,
+                        {
+                            _id: newItemId,
+                            ...pData,
+                            created_at: new Date().toISOString(),
+                            deleted_at: null,
+                        },
+                    ]);
+                }
+            } else if (activeTab === "payment_methods") {
+                const mData = {
                     name: formData.name,
                     is_active: formData.is_active,
                 };
+                if (itemToEdit) {
+                    setPaymentMethods((prev) =>
+                        prev.map((m) =>
+                            m._id === itemToEdit._id ? { ...m, ...mData } : m,
+                        ),
+                    );
+                } else {
+                    setPaymentMethods((prev) => [
+                        ...prev,
+                        { _id: newItemId, ...mData },
+                    ]);
+                }
             }
 
-            const res = await fetch(url, {
-                method: method,
-                headers: {
-                    "Content-Type": "application/json",
-                    Authorization: `Bearer ${token}`,
-                },
-                body: JSON.stringify(bodyData),
-            });
-
-            if (res.ok) {
-                onClose(true);
-            } else {
-                const err = await res.json();
-                alert(err.message || "сервер отклонил запрос.");
-            }
+            onClose(); // Закрываем, таблицы обновятся сами
         } catch (error) {
             console.error(error);
-        } finally {
-            setIsSaving(false);
         }
     };
 
@@ -115,16 +142,16 @@ function AdminDictionaryModal({ isOpen, onClose, itemToEdit, activeTab }) {
         const action = itemToEdit ? "Редактирование:" : "Добавление:";
         if (activeTab === "categories") return `${action} Категория`;
         if (activeTab === "sizes") return `${action} Размер`;
-        if (activeTab === "pickupPoints") return `${action} Пункт выдачи`;
-        if (activeTab === "paymentMethods") return `${action} Метод оплаты`;
+        // ИСПРАВЛЕНА ОШИБКА РЕГИСТРА
+        if (activeTab === "pickup_points") return `${action} Пункт выдачи`;
+        if (activeTab === "payment_methods") return `${action} Метод оплаты`;
         return "Справочник";
     };
 
-    // Я снова использую портал. Это окно будет парить над всей системой.
     return ReactDOM.createPortal(
         <div
             className="admin-product-modal-overlay"
-            onClick={() => onClose(false)}
+            onClick={() => onClose()}
             style={{
                 position: "fixed",
                 top: 0,
@@ -169,7 +196,7 @@ function AdminDictionaryModal({ isOpen, onClose, itemToEdit, activeTab }) {
                         {getTitle()}
                     </h3>
                     <button
-                        onClick={() => onClose(false)}
+                        onClick={() => onClose()}
                         style={{
                             background: "none",
                             border: "none",
@@ -190,8 +217,9 @@ function AdminDictionaryModal({ isOpen, onClose, itemToEdit, activeTab }) {
                         gap: "15px",
                     }}
                 >
+                    {/* ИСПРАВЛЕНА ОШИБКА РЕГИСТРА */}
                     {(activeTab === "categories" ||
-                        activeTab === "paymentMethods") && (
+                        activeTab === "payment_methods") && (
                         <div
                             style={{
                                 display: "flex",
@@ -259,7 +287,8 @@ function AdminDictionaryModal({ isOpen, onClose, itemToEdit, activeTab }) {
                         </div>
                     )}
 
-                    {activeTab === "pickupPoints" && (
+                    {/* ИСПРАВЛЕНА ОШИБКА РЕГИСТРА */}
+                    {activeTab === "pickup_points" && (
                         <>
                             <div
                                 style={{
@@ -354,7 +383,8 @@ function AdminDictionaryModal({ isOpen, onClose, itemToEdit, activeTab }) {
                         </>
                     )}
 
-                    {activeTab === "paymentMethods" && (
+                    {/* ИСПРАВЛЕНА ОШИБКА РЕГИСТРА */}
+                    {activeTab === "payment_methods" && (
                         <label
                             style={{
                                 display: "flex",
@@ -373,7 +403,7 @@ function AdminDictionaryModal({ isOpen, onClose, itemToEdit, activeTab }) {
                                 onChange={handleInputChange}
                                 style={{ transform: "scale(1.2)" }}
                             />
-                            Метод активен и доступен пользователям
+                            Метод активен и доступен
                         </label>
                     )}
 
@@ -387,7 +417,7 @@ function AdminDictionaryModal({ isOpen, onClose, itemToEdit, activeTab }) {
                     >
                         <button
                             type="button"
-                            onClick={() => onClose(false)}
+                            onClick={() => onClose()}
                             style={{
                                 padding: "10px 20px",
                                 borderRadius: "6px",
@@ -402,7 +432,6 @@ function AdminDictionaryModal({ isOpen, onClose, itemToEdit, activeTab }) {
                         </button>
                         <button
                             type="submit"
-                            disabled={isSaving}
                             style={{
                                 padding: "10px 20px",
                                 borderRadius: "6px",
@@ -414,7 +443,7 @@ function AdminDictionaryModal({ isOpen, onClose, itemToEdit, activeTab }) {
                                 transition: "0.2s",
                             }}
                         >
-                            {isSaving ? "Сохраняю..." : "Сохранить"}
+                            Сохранить
                         </button>
                     </div>
                 </form>

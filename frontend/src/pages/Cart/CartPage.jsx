@@ -1,166 +1,224 @@
 import React, { useContext, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { AppStateContext } from "../../App";
+import { GlobalContext } from "../../GlobalContext"; // Подключаем нашу базу
 import Header from "../../layouts/MainLayout/components/Header";
 import "./styles/cart-styles.css";
 
+// === ОТДЕЛЬНЫЙ КОМПОНЕНТ ТОВАРА ДЛЯ ЗАЩИТЫ ПАМЯТИ ===
+function CartItemCard({ cartItem, product, updateQuantity, removeItem }) {
+    const navigate = useNavigate();
+    // Локальный стейт для Blob-ссылки
+    const [imgUrl, setImgUrl] = useState(
+        "https://i.pinimg.com/736x/81/eb/7a/81eb7a8dd4bbd4720ad2ed935b4d3c4b.jpg",
+    );
+
+    useEffect(() => {
+        let url = null;
+        // Защищенное извлечение Blob-файла (обычное фото или фото основы)
+        if (
+            product &&
+            product.photos &&
+            product.photos.length > 0 &&
+            product.photos[0].file_path
+        ) {
+            url = URL.createObjectURL(product.photos[0].file_path);
+            setImgUrl(url);
+        } else if (product && product.front_photo_url) {
+            url = URL.createObjectURL(product.front_photo_url);
+            setImgUrl(url);
+        }
+
+        // Жесткая очистка памяти при удалении товара из корзины
+        return () => {
+            if (url) URL.revokeObjectURL(url);
+        };
+    }, [product]);
+
+    // Если товар удалили из базы, мы его не рендерим
+    if (!product) return null;
+
+    const price =
+        product.prices && product.prices.length > 0
+            ? parseFloat(product.prices[0].price)
+            : 0;
+
+    return (
+        <div className="cart-item-card">
+            <img
+                src={imgUrl}
+                alt={product.name}
+                className="cart-item-img"
+                onClick={() => navigate(`/p/${product._id}`)}
+                style={{ cursor: "pointer" }}
+            />
+            <div className="cart-item-info">
+                <p className="cart-item-name">{product.name}</p>
+                <p className="cart-item-price">{price} ₽</p>
+            </div>
+            <div className="cart-item-controls">
+                <div className="quantity-group">
+                    <button
+                        onClick={() =>
+                            updateQuantity(
+                                cartItem.product_id,
+                                cartItem.quantity,
+                                -1,
+                            )
+                        }
+                    >
+                        -
+                    </button>
+                    <span>{cartItem.quantity}</span>
+                    <button
+                        onClick={() =>
+                            updateQuantity(
+                                cartItem.product_id,
+                                cartItem.quantity,
+                                1,
+                            )
+                        }
+                    >
+                        +
+                    </button>
+                </div>
+                <button
+                    className="cart-item-delete"
+                    onClick={() => removeItem(cartItem.product_id)}
+                >
+                    ✕
+                </button>
+            </div>
+        </div>
+    );
+}
+
+// === ОСНОВНОЙ КОМПОНЕНТ СТРАНИЦЫ ===
 function CartPage() {
     const { appState } = useContext(AppStateContext);
+    const {
+        users,
+        setUsers,
+        products,
+        pickupPoints,
+        paymentMethods,
+        setOrders,
+    } = useContext(GlobalContext);
     const navigate = useNavigate();
-
-    // Я забрал контроль над состоянием. Теперь данные настоящие.
-    const [cartItems, setCartItems] = useState([]);
-    const [pickupPoints, setPickupPoints] = useState([]);
-    const [paymentMethods, setPaymentMethods] = useState([]);
 
     const [pickupPoint, setPickupPoint] = useState("");
     const [paymentMethod, setPaymentMethod] = useState("");
 
-    // Я сам схожу на сервер и достану тебе всё, что нужно.
-    useEffect(() => {
-        if (!appState.isAuthenticated) {
-            navigate("/login");
-            return;
-        }
+    // Жесткие барьеры загрузки
+    if (!users || !products || !pickupPoints || !paymentMethods) return null;
 
-        const token = localStorage.getItem("token");
+    const userId = Number(localStorage.getItem("user_id"));
+    if (!appState.isAuthenticated || !userId) {
+        navigate("/login");
+        return null;
+    }
 
-        // Запрашиваю твою корзину
-        fetch("/api/me/cart", {
-            headers: { Authorization: `Bearer ${token}` },
-        })
-            .then((res) => res.json())
-            .then((data) => {
-                if (data.cartItems) setCartItems(data.cartItems);
-            })
-            .catch((err) =>
-                console.error("Я не смог загрузить твою корзину:", err),
-            );
+    // 1. ВЫЧИСЛЯЕМЫЕ ДАННЫЕ (Без стейта cartItems)
+    const currentUser = users.find((u) => u._id === userId);
+    if (!currentUser) return null;
 
-        // Запрашиваю ПВЗ
-        fetch("/api/pickup-points")
-            .then((res) => res.json())
-            .then((data) => {
-                if (data.pickupPoints) setPickupPoints(data.pickupPoints);
-            })
-            .catch((err) => console.error("Я не смог загрузить ПВЗ:", err));
+    const myCart = currentUser.cart_items || [];
 
-        // Запрашиваю методы оплаты
-        fetch("/api/payment-methods")
-            .then((res) => res.json())
-            .then((data) => {
-                if (data.paymentMethods) setPaymentMethods(data.paymentMethods);
-            })
-            .catch((err) =>
-                console.error("Я не смог загрузить методы оплаты:", err),
-            );
-    }, [appState.isAuthenticated, navigate]);
-
-    // Жестко извлекаем цену и картинку из ответа бэкенда
-    const getPrice = (product) => {
-        if (product && product.prices && product.prices.length > 0) {
-            return parseFloat(product.prices[0].price);
-        }
-        return 0;
-    };
-
-    const getImagePath = (product) => {
-        if (product && product.photos && product.photos.length > 0) {
-            return `/${product.photos[0].filePath.replace(/\\/g, "/")}`;
-        }
-        return "https://i.pinimg.com/736x/81/eb/7a/81eb7a8dd4bbd4720ad2ed935b4d3c4b.jpg";
-    };
-
-    const totalAmount = cartItems.reduce((sum, item) => {
-        return sum + getPrice(item.product) * item.quantity;
+    // Вычисляем итоговую сумму "на лету"
+    const totalAmount = myCart.reduce((sum, item) => {
+        const product = products.find((p) => p._id === item.product_id);
+        if (!product) return sum;
+        const price =
+            product.prices && product.prices.length > 0
+                ? parseFloat(product.prices[0].price)
+                : 0;
+        return sum + price * item.quantity;
     }, 0);
 
-    const updateQuantity = async (cartItemId, currentQuantity, delta) => {
+    // 2. ИЗМЕНЕНИЕ КОЛИЧЕСТВА
+    const updateQuantity = (productId, currentQuantity, delta) => {
         const newQuantity = currentQuantity + delta;
-        // Я не позволю ставить количество меньше 1. Хочешь удалить — нажимай крестик.
-        if (newQuantity < 1) return;
+        if (newQuantity < 1) return; // Нельзя меньше 1
 
-        try {
-            const token = localStorage.getItem("token");
-            const res = await fetch(`/api/me/cart/${cartItemId}`, {
-                method: "PUT",
-                headers: {
-                    "Content-Type": "application/json",
-                    Authorization: `Bearer ${token}`,
-                },
-                body: JSON.stringify({ quantity: newQuantity }),
-            });
-
-            if (res.ok) {
-                // Если я обновил базу, я обновлю и твой интерфейс
-                setCartItems((prev) =>
-                    prev.map((item) =>
-                        item.cartItemId === cartItemId
+        setUsers((prevUsers) =>
+            prevUsers.map((u) => {
+                if (u._id === userId) {
+                    const updatedCart = u.cart_items.map((item) =>
+                        item.product_id === productId
                             ? { ...item, quantity: newQuantity }
                             : item,
-                    ),
-                );
-            } else {
-                const err = await res.json();
-                alert(err.message || "ошиба.");
-            }
-        } catch (error) {
-            console.error(error);
-        }
+                    );
+                    return { ...u, cart_items: updatedCart };
+                }
+                return u;
+            }),
+        );
     };
 
-    const removeItem = async (cartItemId) => {
-        try {
-            const token = localStorage.getItem("token");
-            const res = await fetch(`/api/me/cart/${cartItemId}`, {
-                method: "DELETE",
-                headers: { Authorization: `Bearer ${token}` },
-            });
-
-            if (res.ok) {
-                setCartItems((prev) =>
-                    prev.filter((item) => item.cartItemId !== cartItemId),
-                );
-            } else {
-                const err = await res.json();
-                alert(err.message || "ошиба");
-            }
-        } catch (error) {
-            console.error(error);
-        }
+    // 3. УДАЛЕНИЕ ИЗ КОРЗИНЫ
+    const removeItem = (productId) => {
+        setUsers((prevUsers) =>
+            prevUsers.map((u) => {
+                if (u._id === userId) {
+                    const updatedCart = u.cart_items.filter(
+                        (item) => item.product_id !== productId,
+                    );
+                    return { ...u, cart_items: updatedCart };
+                }
+                return u;
+            }),
+        );
     };
 
-    const handleCheckout = async () => {
+    // 4. ОФОРМЛЕНИЕ ЗАКАЗА (Локальная транзакция)
+    const handleCheckout = () => {
         if (!pickupPoint || !paymentMethod) {
-            alert("Выбери пункт выдачи и способ оплаты.");
+            alert("Выбери пункт выдачи и способ оплаты. Уважай процесс.");
             return;
         }
 
         try {
-            const token = localStorage.getItem("token");
-            const res = await fetch("/api/me/checkout", {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    Authorization: `Bearer ${token}`,
-                },
-                body: JSON.stringify({
-                    pickupPointId: pickupPoint,
-                    paymentMethodId: paymentMethod,
+            // А. Создаем объект нового заказа
+            const newOrder = {
+                _id: Date.now(),
+                user_id: userId,
+                status: "Новый",
+                pickup_point_id: Number(pickupPoint),
+                payment_method_id: Number(paymentMethod),
+                total_amount: totalAmount,
+                created_at: new Date().toISOString(),
+                updated_at: null,
+                is_hidden: false,
+                // Копируем товары из корзины в заказ, фиксируя их цену
+                order_items: myCart.map((c) => {
+                    const prod = products.find((p) => p._id === c.product_id);
+                    const priceSnapshot =
+                        prod && prod.prices && prod.prices.length > 0
+                            ? parseFloat(prod.prices[0].price)
+                            : 0;
+                    return {
+                        product_id: c.product_id,
+                        quantity: c.quantity,
+                        price_snapshot: priceSnapshot,
+                    };
                 }),
-            });
+            };
 
-            const result = await res.json();
+            // Б. Записываем заказ в базу (массив orders)
+            setOrders((prev) => [...prev, newOrder]);
 
-            if (res.ok) {
-                setCartItems([]); // Я очищаю твою корзину, как сделал это на сервере
-                navigate("/profile/orders"); // Иди в профиль, любуйся заказом
-            } else {
-                alert(result.message || "Ошибка оформления заказа.");
-            }
+            // В. Очищаем корзину текущего пользователя
+            setUsers((prevUsers) =>
+                prevUsers.map((u) =>
+                    u._id === userId ? { ...u, cart_items: [] } : u,
+                ),
+            );
+
+            alert("Заказ успешно оформлен!");
+            navigate("/profile/orders");
         } catch (error) {
             console.error(error);
-            alert("Сбой в системе.");
+            alert("Сбой в системе оформления.");
         }
     };
 
@@ -170,76 +228,23 @@ function CartPage() {
             <div className="cart-page-content">
                 <div className="cart-items-section">
                     <h1 className="cart-title">Твоя корзина</h1>
-                    {cartItems.length === 0 ? (
-                        <p className="cart-empty">
-                            Корзина пуста.
-                        </p>
+                    {myCart.length === 0 ? (
+                        <p className="cart-empty">Корзина пуста.</p>
                     ) : (
                         <div className="cart-items-list">
-                            {cartItems.map((item) => {
-                                const product = item.product;
-                                const price = getPrice(product);
-                                const image = getImagePath(product);
-
+                            {myCart.map((item) => {
+                                // Ищем продукт для каждой записи в корзине
+                                const product = products.find(
+                                    (p) => p._id === item.product_id,
+                                );
                                 return (
-                                    <div
-                                        className="cart-item-card"
-                                        key={item.cartItemId}
-                                    >
-                                        <img
-                                            src={image}
-                                            alt={product?.name}
-                                            className="cart-item-img"
-                                            onClick={() =>
-                                                navigate(
-                                                    `/p/${product.productId}`,
-                                                )
-                                            }
-                                        />
-                                        <div className="cart-item-info">
-                                            <p className="cart-item-name">
-                                                {product?.name}
-                                            </p>
-                                            <p className="cart-item-price">
-                                                {price} ₽
-                                            </p>
-                                        </div>
-                                        <div className="cart-item-controls">
-                                            <div className="quantity-group">
-                                                <button
-                                                    onClick={() =>
-                                                        updateQuantity(
-                                                            item.cartItemId,
-                                                            item.quantity,
-                                                            -1,
-                                                        )
-                                                    }
-                                                >
-                                                    -
-                                                </button>
-                                                <span>{item.quantity}</span>
-                                                <button
-                                                    onClick={() =>
-                                                        updateQuantity(
-                                                            item.cartItemId,
-                                                            item.quantity,
-                                                            1,
-                                                        )
-                                                    }
-                                                >
-                                                    +
-                                                </button>
-                                            </div>
-                                            <button
-                                                className="cart-item-delete"
-                                                onClick={() =>
-                                                    removeItem(item.cartItemId)
-                                                }
-                                            >
-                                                ✕
-                                            </button>
-                                        </div>
-                                    </div>
+                                    <CartItemCard
+                                        key={item.product_id}
+                                        cartItem={item}
+                                        product={product}
+                                        updateQuantity={updateQuantity}
+                                        removeItem={removeItem}
+                                    />
                                 );
                             })}
                         </div>
@@ -256,10 +261,11 @@ function CartPage() {
                                 onChange={(e) => setPickupPoint(e.target.value)}
                             >
                                 <option value="">Выбери ПВЗ...</option>
+                                {/* Берем pickup_point_id из архитектуры базы */}
                                 {pickupPoints.map((p) => (
                                     <option
-                                        key={p.pickupPointId}
-                                        value={p.pickupPointId}
+                                        key={p.pickup_point_id || p._id}
+                                        value={p.pickup_point_id || p._id}
                                     >
                                         г. {p.city}, ул. {p.street}, д.{" "}
                                         {p.building}
@@ -276,10 +282,11 @@ function CartPage() {
                                 }
                             >
                                 <option value="">Выбери способ...</option>
+                                {/* Берем payment_method_id из архитектуры базы */}
                                 {paymentMethods.map((m) => (
                                     <option
-                                        key={m.paymentMethodId}
-                                        value={m.paymentMethodId}
+                                        key={m.payment_method_id || m._id}
+                                        value={m.payment_method_id || m._id}
                                     >
                                         {m.name}
                                     </option>
@@ -299,7 +306,7 @@ function CartPage() {
                         <button
                             className="checkout-submit-btn"
                             disabled={
-                                cartItems.length === 0 ||
+                                myCart.length === 0 ||
                                 !pickupPoint ||
                                 !paymentMethod
                             }

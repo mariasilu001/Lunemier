@@ -1,58 +1,114 @@
-import React, { useState, useContext } from "react";
+import React, { useState, useContext, useEffect } from "react";
 import { AppStateContext } from "../../../App";
+import { GlobalContext } from "../../../GlobalContext";
 import { useNavigate } from "react-router-dom";
 import "../styles/product-details-styles.css";
 
 function ProductDetails({ product }) {
     const { appState } = useContext(AppStateContext);
+    // Я добавил reviews сюда!
+    const { products, users, setUsers, sizes, reviews } =
+        useContext(GlobalContext);
     const navigate = useNavigate();
 
-    // Я вытаскиваю фото товара. Если их нет — ставлю заглушку.
-    const photos =
-        product.photos && product.photos.length > 0
-            ? product.photos.map((p) => `/${p.filePath.replace(/\\/g, "/")}`)
-            : [
-                  "https://i.pinimg.com/736x/81/eb/7a/81eb7a8dd4bbd4720ad2ed935b4d3c4b.jpg",
-              ];
+    // Стейты для картинок
+    const [photoUrls, setPhotoUrls] = useState([]);
+    const [activePhoto, setActivePhoto] = useState(
+        "https://i.pinimg.com/736x/81/eb/7a/81eb7a8dd4bbd4720ad2ed935b4d3c4b.jpg",
+    );
 
-    const [activePhoto, setActivePhoto] = useState(photos[0]);
+    // === ПРАВИЛЬНАЯ РАБОТА С ФАЙЛАМИ BLOB ===
+    useEffect(() => {
+        const urls = [];
 
-    // Я проверяю цену.
+        // Перебираем массив файлов и создаем для каждого временную ссылку
+        if (product.photos && product.photos.length > 0) {
+            product.photos.forEach((p) => {
+                if (p.file_path) {
+                    urls.push(URL.createObjectURL(p.file_path));
+                }
+            });
+        } else if (product.front_photo_url) {
+            // Если это базовая вещь, у нее нет массива photos, но есть front_photo_url
+            urls.push(URL.createObjectURL(product.front_photo_url));
+        }
+
+        if (urls.length > 0) {
+            setPhotoUrls(urls);
+            setActivePhoto(urls[0]); // Первая картинка становится активной
+        }
+
+        // Жесткая очистка памяти
+        return () => {
+            urls.forEach((url) => URL.revokeObjectURL(url));
+        };
+    }, [product]);
+
+    // Барьер защиты
+    if (!products || !users || !sizes || !reviews)
+        return <div>Загрузка базы...</div>;
+
     const price =
         product.prices && product.prices.length > 0
             ? product.prices[0].price
             : "Нет цены";
 
-    const rating = product.averageRating || "0.0";
+    // Твой исправленный рейтинг (теперь он видит reviews)
+    const calculateRating = () => {
+        const productRevs = reviews.filter((r) => r.product_id === product._id);
+        if (productRevs.length === 0) return 0;
+        const totalRating = productRevs.reduce((acc, r) => acc + r.rating, 0);
+        return (totalRating / productRevs.length).toFixed(1); // Округляем до 1 знака
+    };
 
-    const handleAddToCart = async () => {
-        if (!appState.isAuthenticated) {
-            alert("Сначала авторизуйся. ");
+    const rating = calculateRating();
+    const sizeObj = sizes.find((s) => s._id === product.size_id);
+    const sizeStr = sizeObj ? sizeObj.size_value : "Универсальный";
+
+    // === ИДЕАЛЬНОЕ ДОБАВЛЕНИЕ В КОРЗИНУ ===
+    const handleAddToCart = () => {
+        const userId = Number(localStorage.getItem("user_id"));
+
+        if (!appState.isAuthenticated || !userId) {
             navigate("/login");
             return;
         }
 
         try {
-            const token = localStorage.getItem("token");
-            const res = await fetch("/api/me/cart", {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    Authorization: `Bearer ${token}`,
-                },
-                body: JSON.stringify({
-                    productId: product.productId,
-                    quantity: 1,
-                }),
-            });
+            setUsers((prevUsers) => {
+                return prevUsers.map((u) => {
+                    if (u._id === userId) {
+                        const cart = u.cart_items || [];
+                        const existingItemIndex = cart.findIndex(
+                            (item) => item.product_id === product._id,
+                        );
 
-            if (res.ok) {
-            } else {
-                const err = await res.json();
-                alert(err.message || "Ошибка добавления.");
-            }
+                        if (existingItemIndex !== -1) {
+                            // Если товар уже есть — увеличиваем количество
+                            const updatedCart = [...cart];
+                            updatedCart[existingItemIndex] = {
+                                ...updatedCart[existingItemIndex],
+                                quantity:
+                                    updatedCart[existingItemIndex].quantity + 1,
+                            };
+                            return { ...u, cart_items: updatedCart };
+                        } else {
+                            // Если товара нет — добавляем новый
+                            const newItem = {
+                                product_id: product._id,
+                                quantity: 1,
+                                created_at: new Date().toISOString(),
+                            };
+                            return { ...u, cart_items: [...cart, newItem] };
+                        }
+                    }
+                    return u; // Чужих юзеров не трогаем
+                });
+            });
+            alert("Товар добавлен в твою корзину. Я проследил.");
         } catch (error) {
-            console.error("Ошибка корзины:", error);
+            alert("Ошибка добавления. Смотри консоль.");
+            console.error(error);
         }
     };
 
@@ -60,7 +116,7 @@ function ProductDetails({ product }) {
         <div className="product-details-container">
             <div className="product-gallery-section">
                 <div className="product-thumbnails-column">
-                    {photos.map((photo, index) => (
+                    {photoUrls.map((photo, index) => (
                         <img
                             key={index}
                             src={photo}
@@ -105,16 +161,13 @@ function ProductDetails({ product }) {
                 <p className="product-info-price">{price} ₽</p>
                 <p className="product-info-description">
                     {product.description ||
-                        "Оно согреет тебя"}
+                        "Оно согреет тебя. Закутайся в него и помни, чья ты."}
                 </p>
 
                 <div className="product-info-sizes">
                     <p className="sizes-label">Размер:</p>
                     <div className="sizes-grid">
-                        <button className="size-btn">XS</button>
-                        <button className="size-btn active">S</button>
-                        <button className="size-btn">M</button>
-                        <button className="size-btn">L</button>
+                        <button className="size-btn active">{sizeStr}</button>
                     </div>
                 </div>
 

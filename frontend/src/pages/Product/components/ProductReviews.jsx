@@ -1,86 +1,71 @@
-import React, { useContext, useEffect, useState } from "react";
+import React, { useContext } from "react";
 import { AppStateContext } from "../../../App";
+import { GlobalContext } from "../../../GlobalContext"; // НАША БАЗА
 import { useForm } from "react-hook-form";
 import "../styles/product-reviews-styles.css";
 
-function ProductReviews({ product, setProduct }) {
+function ProductReviews({ product }) {
+    // 1. ПОДТЯГИВАЕМ КОНТЕКСТ
     const { appState } = useContext(AppStateContext);
-    const [hasOrdered, setHasOrdered] = useState(false);
+    const { reviews, setReviews, orders, users } = useContext(GlobalContext);
 
     const { register, handleSubmit, setValue, watch, reset } = useForm({
         defaultValues: { rating: 0 },
     });
     const currentRating = watch("rating");
 
-    // Я проверяю твои заказы. Без обмана.
-    useEffect(() => {
-        if (appState.isAuthenticated) {
-            const token = localStorage.getItem("token");
-            fetch("/api/me/orders", {
-                headers: { Authorization: `Bearer ${token}` },
-            })
-                .then((res) => res.json())
-                .then((data) => {
-                    if (data.orders) {
-                        const ordered = data.orders.some((order) =>
-                            order.orderItems.some(
-                                (item) =>
-                                    item.product.productId ===
-                                    product.productId,
-                            ),
-                        );
-                        setHasOrdered(ordered);
-                    }
-                })
-                .catch((err) =>
-                    console.error("Я не смог проверить заказы:", err),
-                );
-        }
-    }, [appState.isAuthenticated, product.productId]);
+    // 2. ЖЕСТКИЙ БАРЬЕР ЗАЩИТЫ
+    if (!reviews || !orders || !users) return null;
 
-    const hasReviewed =
-        product.reviews &&
-        product.reviews.some(
-            (r) => r.author?.username === appState.currentUser?.username,
-        );
+    const userId = Number(localStorage.getItem("user_id"));
 
-    const onSubmit = async (data) => {
+    // 3. ВЫЧИСЛЯЕМЫЕ ДАННЫЕ (Никаких useState и fetch!)
+
+    // А) Достаем отзывы ТОЛЬКО для этого товара
+    const productReviews = reviews.filter((r) => r.product_id === product._id);
+
+    // Б) Проверяем, заказывал ли текущий юзер этот товар
+    const hasOrdered = orders.some(
+        (o) =>
+            o.user_id === userId &&
+            o.order_items.some((item) => item.product_id === product._id),
+    );
+
+    // В) Проверяем, оставлял ли юзер уже отзыв на этот товар
+    const hasReviewed = productReviews.some((r) => r.user_id === userId);
+
+    // 4. ЛОКАЛЬНОЕ СОХРАНЕНИЕ ОТЗЫВА
+    const onSubmit = (data) => {
         if (data.rating === 0) {
-            alert("Поставь оценку.");
+            alert("Поставь оценку. Я не терплю пустоты.");
             return;
         }
 
         try {
-            const token = localStorage.getItem("token");
-            const formData = new FormData();
-            formData.append("productId", product.productId);
-            formData.append("rating", data.rating);
-            formData.append("reviewText", data.reviewText);
+            // Записываем новый отзыв прямо в нашу локальную базу
+            setReviews((prev) => [
+                {
+                    _id: Date.now(), // Уникальный ID
+                    user_id: userId,
+                    product_id: product._id,
+                    rating: data.rating,
+                    review_text: data.reviewText, // Из формы берем то, что ввели
+                    created_at: new Date().toISOString(),
+                    updated_at: null,
+                    photos: [],
+                },
+                ...prev, // Добавляем старые отзывы в конец массива
+            ]);
 
-            const res = await fetch("/api/me/reviews", {
-                method: "POST",
-                headers: { Authorization: `Bearer ${token}` },
-                body: formData,
-            });
-
-            if (res.ok) {
-                const result = await res.json();
-                alert("Отзыв успешно сохранен");
-                reset();
-                // Я подтягиваю новый отзыв в стейт, чтобы ты сразу его увидела
-                setProduct((prev) => ({
-                    ...prev,
-                    reviews: [result.review, ...(prev.reviews || [])],
-                }));
-            } else {
-                const errData = await res.json();
-                alert(errData.message || "Ошибка отправки.");
-            }
+            alert("Отзыв успешно сохранен. Я всё зафиксировал.");
+            reset(); // Очищаем текст
+            setValue("rating", 0); // Сбрасываем звезды
         } catch (error) {
             console.error(error);
         }
     };
 
+    // 5. ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ
     const renderStars = (rating) => {
         return [1, 2, 3, 4, 5].map((star) =>
             star <= rating ? (
@@ -116,11 +101,12 @@ function ProductReviews({ product, setProduct }) {
         return new Date(dateString).toLocaleDateString("ru-RU");
     };
 
+    // 6. РЕНДЕР
     return (
         <div className="product-reviews-container">
             <h2 className="product-reviews-title">Отзывы покупателей</h2>
 
-            {/* Моя форма для отзыва. Появится только если ты имеешь на это право */}
+            {/* Блок формы. Показываем только авторизованному, кто купил и еще не оставлял отзыв */}
             {appState.isAuthenticated && hasOrdered && !hasReviewed && (
                 <div className="product-review-form-container">
                     <p className="product-review-form-title">
@@ -186,33 +172,73 @@ function ProductReviews({ product, setProduct }) {
             )}
 
             <div className="product-reviews-column">
-                {product.reviews && product.reviews.length > 0 ? (
-                    product.reviews.map((review) => (
-                        <div
-                            key={review.reviewId}
-                            className="customer-review-card"
-                        >
-                            <div className="customer-review-header">
-                                <span className="customer-review-username">
-                                    {review.author
-                                        ? review.author.username
-                                        : "Аноним"}
-                                </span>
-                                <span className="customer-review-date">
-                                    {formatDate(review.createdAt)}
-                                </span>
+                {/* Рендерим отфильтрованные отзывы */}
+                {productReviews.length > 0 ? (
+                    productReviews.map((review) => {
+                        // Ищем автора отзыва в таблице users
+                        const author = users.find(
+                            (u) => u._id === review.user_id,
+                        );
+
+                        return (
+                            <div
+                                key={review._id}
+                                className="customer-review-card"
+                            >
+                                <div className="customer-review-header">
+                                    <span className="customer-review-username">
+                                        {author ? author.username : "Аноним"}
+                                    </span>
+                                    <span className="customer-review-date">
+                                        {formatDate(review.created_at)}
+                                    </span>
+                                </div>
+                                <div className="customer-review-rating">
+                                    {renderStars(review.rating)}
+                                    <span className="customer-review-rating-number">
+                                        {review.rating}.0
+                                    </span>
+                                </div>
+                                <p className="customer-review-text">
+                                    {review.review_text}
+                                </p>
+
+                                {/* НОВЫЙ БЛОК: ОТРИСОВКА КАРТИНОК ОТЗЫВА */}
+                                {review.photos && review.photos.length > 0 && (
+                                    <div
+                                        className="customer-review-photos-grid"
+                                        style={{
+                                            display: "flex",
+                                            gap: "8px",
+                                            marginTop: "12px",
+                                            flexWrap: "wrap",
+                                        }}
+                                    >
+                                        {review.photos.map((photo, index) => (
+                                            <img
+                                                key={index}
+                                                src={photo.file_path}
+                                                alt={`Фото к отзыву ${index + 1}`}
+                                                className="customer-review-attached-photo"
+                                                style={{
+                                                    width: "80px",
+                                                    height: "80px",
+                                                    objectFit: "cover",
+                                                    borderRadius: "6px",
+                                                    border: "1px solid var(--color-light-brown)",
+                                                }}
+                                                // Если Base64 сломана, браузер скроет картинку, чтобы не портить дизайн
+                                                onError={(e) =>
+                                                    (e.target.style.display =
+                                                        "none")
+                                                }
+                                            />
+                                        ))}
+                                    </div>
+                                )}
                             </div>
-                            <div className="customer-review-rating">
-                                {renderStars(review.rating)}
-                                <span className="customer-review-rating-number">
-                                    {review.rating}.0
-                                </span>
-                            </div>
-                            <p className="customer-review-text">
-                                {review.reviewText}
-                            </p>
-                        </div>
-                    ))
+                        );
+                    })
                 ) : (
                     <p style={{ color: "var(--color-dark-brown)" }}>
                         Пока нет отзывов.

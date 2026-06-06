@@ -1,59 +1,55 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useContext } from "react";
 import ReactDOM from "react-dom";
+import { GlobalContext } from "../../../GlobalContext"; // Подключаем базу для сохранения
 
 function AdminPriceModal({ isOpen, onClose, product }) {
-    const [history, setHistory] = useState([]);
+    const { setProducts } = useContext(GlobalContext);
     const [newPrice, setNewPrice] = useState("");
-    const [isSaving, setIsSaving] = useState(false);
-
-    useEffect(() => {
-        if (!product) return;
-
-        // Как только модалка открывается, я заставляю ее стянуть историю цен этого товара
-        const token = localStorage.getItem("token");
-        fetch(`/api/admin/prices/product/${product.productId}`, {
-            headers: { Authorization: `Bearer ${token}` },
-        })
-            .then((res) => res.json())
-            .then((data) => {
-                if (data.history) setHistory(data.history);
-            })
-            .catch(console.error);
-    }, [product]);
 
     if (!isOpen || !product) return null;
 
-    const handleSave = async () => {
+    // Вычисляем историю прямо из объекта товара. Сортируем от новых к старым.
+    const history = product.prices
+        ? [...product.prices].sort(
+              (a, b) => new Date(b.created_at) - new Date(a.created_at),
+          )
+        : [];
+
+    const handleSave = () => {
         if (!newPrice || isNaN(newPrice) || Number(newPrice) <= 0) {
-            alert("Цена должна быть числом больше нуля");
+            alert(
+                "Цена должна быть числом больше нуля. Никакой благотворительности.",
+            );
             return;
         }
 
-        setIsSaving(true);
         try {
-            const token = localStorage.getItem("token");
-            const res = await fetch("/api/admin/prices", {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    Authorization: `Bearer ${token}`,
-                },
-                body: JSON.stringify({
-                    product_id: product.productId,
-                    price: newPrice,
-                }),
-            });
+            // Формируем новую цену
+            const newPriceObj = {
+                price: parseFloat(newPrice),
+                created_at: new Date().toISOString(),
+                is_active: true, // Она становится активной
+            };
 
-            if (res.ok) {
-                onClose(true); // Сообщаем родителю об обновлении
-            } else {
-                const err = await res.json();
-                alert(err.message || "Ошибка обновления цены.");
-            }
+            setProducts((prevProducts) =>
+                prevProducts.map((p) => {
+                    if (p._id === product._id) {
+                        // Берем старые цены и жестко выключаем их (is_active: false)
+                        const oldPrices = (p.prices || []).map((oldP) => ({
+                            ...oldP,
+                            is_active: false,
+                        }));
+
+                        // Возвращаем товар с обновленным массивом цен (старые + новая)
+                        return { ...p, prices: [...oldPrices, newPriceObj] };
+                    }
+                    return p;
+                }),
+            );
+
+            onClose(); // Закрываем, таблица позади обновится мгновенно
         } catch (error) {
             console.error(error);
-        } finally {
-            setIsSaving(false);
         }
     };
 
@@ -62,11 +58,10 @@ function AdminPriceModal({ isOpen, onClose, product }) {
         return new Date(dateStr).toLocaleString("ru-RU");
     };
 
-    // Очередной портал. Ничто не перекроет мою волю.
     return ReactDOM.createPortal(
         <div
             className="admin-product-modal-overlay"
-            onClick={() => onClose(false)}
+            onClick={() => onClose()}
             style={{
                 position: "fixed",
                 top: 0,
@@ -104,7 +99,7 @@ function AdminPriceModal({ isOpen, onClose, product }) {
                         Товар: {product.name}
                     </h3>
                     <button
-                        onClick={() => onClose(false)}
+                        onClick={() => onClose()}
                         style={{
                             background: "none",
                             border: "none",
@@ -130,7 +125,6 @@ function AdminPriceModal({ isOpen, onClose, product }) {
                         />
                         <button
                             onClick={handleSave}
-                            disabled={isSaving}
                             style={{
                                 padding: "8px 16px",
                                 backgroundColor: "var(--color-dark-brown)",
@@ -140,7 +134,7 @@ function AdminPriceModal({ isOpen, onClose, product }) {
                                 borderRadius: "4px",
                             }}
                         >
-                            {isSaving ? "Установка..." : "Применить"}
+                            Применить
                         </button>
                     </div>
                 </div>
@@ -152,23 +146,24 @@ function AdminPriceModal({ isOpen, onClose, product }) {
                     <p style={{ color: "#777" }}>Истории пока нет.</p>
                 ) : (
                     <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
-                        {history.map((item) => (
+                        {history.map((item, index) => (
                             <li
-                                key={item.priceId}
+                                key={index}
                                 style={{
                                     padding: "10px",
                                     borderBottom: "1px solid #eee",
                                     display: "flex",
                                     justifyContent: "space-between",
-                                    backgroundColor: item.isActive
+                                    backgroundColor: item.is_active
                                         ? "rgba(40, 167, 69, 0.1)"
                                         : "transparent",
                                 }}
                             >
                                 <span>
                                     {item.price} ₽{" "}
-                                    {item.isActive && (
+                                    {item.is_active && (
                                         <strong style={{ color: "green" }}>
+                                            {" "}
                                             (Текущая)
                                         </strong>
                                     )}
@@ -176,7 +171,7 @@ function AdminPriceModal({ isOpen, onClose, product }) {
                                 <span
                                     style={{ color: "#777", fontSize: "14px" }}
                                 >
-                                    {formatDate(item.createdAt)}
+                                    {formatDate(item.created_at)}
                                 </span>
                             </li>
                         ))}
